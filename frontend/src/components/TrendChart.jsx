@@ -40,10 +40,10 @@ export default function TrendChart({ history, onPeriodChange, period }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-          <XAxis dataKey="time" stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Inter" }} />
-          <YAxis stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Inter" }} />
+          <XAxis dataKey="time" stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Plus Jakarta Sans" }} />
+          <YAxis stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Plus Jakarta Sans" }} />
           <Tooltip
-            contentStyle={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 4, color: "#fff", fontFamily: "Inter", fontSize: 12 }}
+            contentStyle={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 4, color: "#fff", fontFamily: "Plus Jakarta Sans", fontSize: 12 }}
             cursor={{ stroke: "#333" }}
           />
           <Area
