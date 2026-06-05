@@ -66,9 +66,9 @@ export default function App() {
       <Header lastUpdated={lastUpdated} />
       <main style={mainStyle}>
         {error && <div style={errorStyle}>{error}</div>}
-        <SummaryCards snapshots={snapshots} />
+        <SummaryCards snapshots={snapshots} teslaId={TESLA_PERMIT} />
         <TrendChart history={history} period={period} onPeriodChange={setPeriod} />
-        <ComparisonChart snapshots={snapshots} />
+        <ComparisonChart snapshots={snapshots} teslaId={TESLA_PERMIT} />
         <ChangeLog events={events} page={eventsPage} onPageChange={(p) => setEventsPage(Math.max(1, p))} />
       </main>
     </div>

@@ -1,47 +1,97 @@
-.grid {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 24px;
+.wrapper {
+  margin-bottom: 28px;
 }
 
-.card {
-  flex: 1;
-  min-width: 160px;
+/* ── Tesla hero card ── */
+.teslaCard {
   background: #0f0f0f;
-  border: 1px solid #1e1e1e;
+  border: 1px solid #2a2a2a;
   border-left: 3px solid #e82127;
   border-radius: 6px;
-  padding: 20px 24px;
-  transition: border-color 0.2s;
+  padding: 28px 32px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.card:hover {
-  border-color: #333;
-  border-left-color: #e82127;
+.teslaLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.name {
+.teslaName {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #e82127;
+}
+
+.teslaCount {
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.teslaLabel {
+  font-size: 11px;
+  color: #444;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.teslaRight {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #555;
+  color: #333;
+  text-align: right;
+}
+
+/* ── Others grid ── */
+.othersLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #2a2a2a;
   margin-bottom: 8px;
 }
 
-.count {
-  font-size: 42px;
-  font-weight: 700;
-  line-height: 1;
-  color: #fff;
-  letter-spacing: -0.02em;
+.othersGrid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.label {
+.otherCard {
+  flex: 1;
+  min-width: 140px;
+  background: #080808;
+  border: 1px solid #161616;
+  border-radius: 4px;
+  padding: 12px 16px;
+}
+
+.otherName {
   font-size: 10px;
+  font-weight: 500;
   color: #333;
-  margin-top: 6px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.otherCount {
+  font-size: 22px;
+  font-weight: 600;
+  color: #444;
+  line-height: 1;
+  letter-spacing: -0.01em;
 }

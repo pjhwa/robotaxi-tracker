@@ -1,22 +1,41 @@
 import styles from "./SummaryCards.module.css";
 
-export default function SummaryCards({ snapshots }) {
-  return (
-    <div className={styles.grid}>
-      {snapshots.map((s) => (
-        <Card key={s.operator_id} snapshot={s} />
-      ))}
-    </div>
-  );
-}
+export default function SummaryCards({ snapshots, teslaId }) {
+  const sorted = [...snapshots].sort((a, b) => (b.vehicle_count ?? 0) - (a.vehicle_count ?? 0));
+  const tesla = sorted.find((s) => s.operator_id === teslaId);
+  const teslaRank = tesla ? sorted.findIndex((s) => s.operator_id === teslaId) + 1 : null;
+  const others = sorted.filter((s) => s.operator_id !== teslaId);
 
-function Card({ snapshot }) {
-  const { name, vehicle_count } = snapshot;
   return (
-    <div className={styles.card}>
-      <div className={styles.name}>{name}</div>
-      <div className={styles.count}>{vehicle_count ?? "—"}</div>
-      <div className={styles.label}>Vehicles Permitted</div>
+    <div className={styles.wrapper}>
+      {tesla && (
+        <div className={styles.teslaCard}>
+          <div className={styles.teslaLeft}>
+            <div className={styles.teslaName}>Tesla Robotaxi</div>
+            <div className={styles.teslaCount}>{tesla.vehicle_count ?? "—"}</div>
+            <div className={styles.teslaLabel}>Vehicles Permitted · Texas</div>
+          </div>
+          {teslaRank && (
+            <div className={styles.teslaRight}>
+              #{teslaRank} in Texas
+            </div>
+          )}
+        </div>
+      )}
+
+      {others.length > 0 && (
+        <>
+          <div className={styles.othersLabel}>Other Operators</div>
+          <div className={styles.othersGrid}>
+            {others.map((s) => (
+              <div key={s.operator_id} className={styles.otherCard}>
+                <div className={styles.otherName}>{s.name}</div>
+                <div className={styles.otherCount}>{s.vehicle_count ?? "—"}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
