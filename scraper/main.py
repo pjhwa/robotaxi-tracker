@@ -29,7 +29,7 @@ def run_scrape():
             )
         logger.info("Scrape complete: %d operators saved", len(results))
     except Exception as e:
-        logger.error("Scrape run failed: %s", e)
+        logger.error("Scrape run failed: %s", e, exc_info=True)
 
 
 if __name__ == "__main__":
