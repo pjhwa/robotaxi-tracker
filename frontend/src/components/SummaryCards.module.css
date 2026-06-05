@@ -1,0 +1,47 @@
+.grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.card {
+  flex: 1;
+  min-width: 160px;
+  background: #0f0f0f;
+  border: 1px solid #1e1e1e;
+  border-left: 3px solid #e82127;
+  border-radius: 6px;
+  padding: 20px 24px;
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: #333;
+  border-left-color: #e82127;
+}
+
+.name {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.count {
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.label {
+  font-size: 10px;
+  color: #333;
+  margin-top: 6px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}

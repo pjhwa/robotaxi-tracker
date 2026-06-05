@@ -13,6 +13,22 @@ import {
 const TESLA_PERMIT = "AV8313426653583";
 const REFRESH_MS = 15 * 60 * 1000;
 
+const errorStyle = {
+  background: "rgba(232,33,39,0.08)",
+  border: "1px solid rgba(232,33,39,0.3)",
+  borderRadius: 6,
+  padding: "10px 16px",
+  marginBottom: 20,
+  color: "#e82127",
+  fontSize: 13,
+};
+
+const mainStyle = {
+  maxWidth: 1100,
+  margin: "0 auto",
+  padding: "32px 24px 64px",
+};
+
 export default function App() {
   const [snapshots, setSnapshots] = useState([]);
   const [history, setHistory] = useState([]);
@@ -35,7 +51,7 @@ export default function App() {
       setLastUpdated(new Date().toISOString());
       setError(null);
     } catch (e) {
-      setError("데이터 로딩 실패: " + e.message);
+      setError("Failed to load data: " + e.message);
     }
   }, [period, eventsPage]);
 
@@ -45,22 +61,15 @@ export default function App() {
     return () => clearInterval(id);
   }, [loadAll]);
 
-  const handlePeriodChange = (p) => { setPeriod(p); };
-  const handlePageChange = (p) => { setEventsPage(Math.max(1, p)); };
-
   return (
-    <div style={{ background: "#0d0d1a", minHeight: "100vh", color: "#fff", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ background: "#000", minHeight: "100vh" }}>
       <Header lastUpdated={lastUpdated} />
-      <main style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 48px" }}>
-        {error && (
-          <div style={{ background: "#3a1a1a", border: "1px solid #e82127", borderRadius: 6, padding: "10px 16px", marginBottom: 16, color: "#e82127" }}>
-            {error}
-          </div>
-        )}
+      <main style={mainStyle}>
+        {error && <div style={errorStyle}>{error}</div>}
         <SummaryCards snapshots={snapshots} />
-        <TrendChart history={history} period={period} onPeriodChange={handlePeriodChange} />
+        <TrendChart history={history} period={period} onPeriodChange={setPeriod} />
         <ComparisonChart snapshots={snapshots} />
-        <ChangeLog events={events} page={eventsPage} onPageChange={handlePageChange} />
+        <ChangeLog events={events} page={eventsPage} onPageChange={(p) => setEventsPage(Math.max(1, p))} />
       </main>
     </div>
   );

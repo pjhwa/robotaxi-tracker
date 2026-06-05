@@ -1,37 +1,30 @@
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import styles from "./TrendChart.module.css";
 
 const PERIODS = [
-  { label: "7일", value: 7 },
-  { label: "30일", value: 30 },
-  { label: "전체", value: null },
+  { label: "7D", value: 7 },
+  { label: "30D", value: 30 },
+  { label: "All", value: null },
 ];
 
 export default function TrendChart({ history, onPeriodChange, period }) {
   const data = history.map((h) => ({
-    time: new Date(h.captured_at).toLocaleDateString("ko-KR"),
+    time: new Date(h.captured_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     count: h.vehicle_count,
   }));
 
   return (
-    <div style={{ background: "#1a1a2e", border: "1px solid #333", borderRadius: 8, padding: 24, marginBottom: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Tesla 차량 수 변화</h2>
-        <div style={{ display: "flex", gap: 8 }}>
+    <div className={styles.card}>
+      <div className={styles.header}>
+        <span className={styles.title}>Tesla Fleet Size</span>
+        <div className={styles.pills}>
           {PERIODS.map((p) => (
             <button
               key={p.label}
               onClick={() => onPeriodChange(p.value)}
-              style={{
-                background: period === p.value ? "#e82127" : "#333",
-                color: "#fff",
-                border: "none",
-                borderRadius: 4,
-                padding: "4px 12px",
-                cursor: "pointer",
-                fontSize: 12,
-              }}
+              className={`${styles.pill} ${period === p.value ? styles.pillActive : ""}`}
             >
               {p.label}
             </button>
@@ -39,15 +32,30 @@ export default function TrendChart({ history, onPeriodChange, period }) {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-          <XAxis dataKey="time" stroke="#555" tick={{ fontSize: 11 }} />
-          <YAxis stroke="#555" tick={{ fontSize: 11 }} />
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id="redGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#e82127" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="#e82127" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+          <XAxis dataKey="time" stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Inter" }} />
+          <YAxis stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Inter" }} />
           <Tooltip
-            contentStyle={{ background: "#1a1a2e", border: "1px solid #555", color: "#fff" }}
+            contentStyle={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 4, color: "#fff", fontFamily: "Inter", fontSize: 12 }}
+            cursor={{ stroke: "#333" }}
           />
-          <Line type="monotone" dataKey="count" stroke="#e82127" dot={false} strokeWidth={2} />
-        </LineChart>
+          <Area
+            type="monotone"
+            dataKey="count"
+            stroke="#e82127"
+            strokeWidth={2}
+            fill="url(#redGrad)"
+            dot={false}
+            activeDot={{ r: 4, fill: "#e82127", strokeWidth: 0 }}
+          />
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
