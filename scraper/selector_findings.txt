@@ -1,0 +1,155 @@
+# TxMCCS DOM/API Selector Findings
+# Discovered: 2026-06-05
+# The site is a React SPA — NO DOM scraping needed. Use the REST API directly.
+
+# ============================================================
+# VERDICT: USE REST API, NOT DOM SELECTORS
+# ============================================================
+# The TxMCCS frontend calls a public REST API (no auth required for read endpoints).
+# All data is available via JSON without Playwright/browser automation.
+
+# ============================================================
+# API BASE URL
+# ============================================================
+API_BASE = "https://txmccs.txdmv.gov/api/TruckStop"
+
+# ============================================================
+# SEARCH / LIST OPERATORS
+# ============================================================
+# Endpoint: GET /api/TruckStop/companies
+# Query params:
+#   searchType = "company_name" | "authorization_number" | "address" | "usdot"
+#   searchValue = search string (min 4 chars)
+#
+# Example:
+#   GET https://txmccs.txdmv.gov/api/TruckStop/companies?searchType=company_name&searchValue=Tesla
+#
+# Response shape:
+# {
+#   "certificates": [],
+#   "autonomousVehicleRegistrations": [
+#     {
+#       "type": "autonomous_vehicle_registration",
+#       "authorizationNumber": "AV8313426653583",
+#       "status": "authorized",             // "authorized" | "not_authorized"
+#       "businessEntityId": "...",
+#       "companyName": "Tesla Robotaxi, LLC, DBA: Tesla Robotaxi, LLC",
+#       "physicalAddress": { ... },
+#       "mailingAddress": { ... }
+#     }
+#   ],
+#   "total": 1
+# }
+#
+# NOTE: search is required — no "list all" endpoint observed.
+# To enumerate all AV operators, search for common suffixes: "LLC", "Inc", "Corp", etc.
+# Known authorized robotaxi operators as of 2026-06-05:
+#   AV8313426653583  Tesla Robotaxi, LLC
+#   AV8712526941758  Waymo LLC
+#   AV3411026312345  BOT AUTO TX INC
+#   AV1112826519229  Zoox, Inc.
+#   AV6911226417664  KODIAK ROBOTICS INC
+#   AV2312026781376  AURORA OPERATIONS INC
+#   AV5211226394189  MAY MOBILITY INC
+#   AV4914126484158  NURO INC
+#   AV7514626642616  GATIK AI INCORPORATED
+#   AV4314726144439  TORC ROBOTICS INC
+#   AV4714826624272  WAABI LOGISTICS INC
+#   AV9714626911749  PLUSAI INC
+#   AV1211026841314  TRUCK OPCO LLC
+#   AV6514726251949  INTERNATIONAL TRANSPORT ENGINEERING LLC
+
+SEARCH_OPERATORS_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies?searchType=company_name&searchValue={query}"
+
+# ============================================================
+# OPERATOR DETAIL
+# ============================================================
+# Endpoint: GET /api/TruckStop/operators/{authorizationNumber}
+#
+# Example:
+#   GET https://txmccs.txdmv.gov/api/TruckStop/operators/AV8313426653583
+#
+# Response shape:
+# {
+#   "operator": {
+#     "id": "...",
+#     "status": "authorized",
+#     "authorizationNumber": "AV8313426653583",
+#     "submittedAt": "2026-05-14T20:25:27.396148+00:00",
+#     "grantedAt": "2026-05-14T20:25:27.417266+00:00",
+#     "businessEntity": {
+#       "legalName": "Tesla Robotaxi, LLC",
+#       "dbaName": "Tesla Robotaxi, LLC",
+#       "businessType": "limited_liability_company",
+#       "physicalAddress": { "fullAddress": "1 Tesla Road , Austin, TX 78725", ... },
+#       "mailingAddress": { ... }
+#     },
+#     "certification": { ... }
+#   }
+# }
+
+OPERATOR_DETAIL_URL = "https://txmccs.txdmv.gov/api/TruckStop/operators/{authorizationNumber}"
+
+# ============================================================
+# VEHICLE LIST
+# ============================================================
+# Endpoint: GET /api/TruckStop/operators/{authorizationNumber}/vehicles
+#
+# Example:
+#   GET https://txmccs.txdmv.gov/api/TruckStop/operators/AV8313426653583/vehicles
+#
+# Response shape:
+# {
+#   "vehicles": [
+#     {
+#       "vin": "7SAYGDEE5TF563340",
+#       "make": "TESLA",
+#       "model": "Model Y",
+#       "modelYear": 2026
+#     },
+#     ...
+#   ]
+# }
+#
+# NOTE: Returns ALL vehicles (no pagination). Tesla has 51 as of 2026-06-05.
+# Vehicle count = len(response["vehicles"])
+# Vehicle make = vehicle["make"]
+# Vehicle model = vehicle["model"]
+
+OPERATOR_VEHICLES_URL = "https://txmccs.txdmv.gov/api/TruckStop/operators/{authorizationNumber}/vehicles"
+
+# ============================================================
+# DATA FIELD MAPPINGS (from API JSON, not DOM)
+# ============================================================
+# Operator name:      response["operator"]["businessEntity"]["legalName"]
+# DBA name:           response["operator"]["businessEntity"]["dbaName"]
+# Authorization #:    response["operator"]["authorizationNumber"]
+# Status:             response["operator"]["status"]   ("authorized" | "not_authorized")
+# Vehicle count:      len(vehicles_response["vehicles"])
+# Vehicle make:       vehicles_response["vehicles"][n]["make"]
+# Vehicle model:      vehicles_response["vehicles"][n]["model"]
+# Vehicle model year: vehicles_response["vehicles"][n]["modelYear"]
+# Vehicle VIN:        vehicles_response["vehicles"][n]["vin"]
+
+# ============================================================
+# DOM SELECTORS (only needed if API access is blocked in future)
+# ============================================================
+# The SPA detail page URL pattern: /automated-vehicles/operators/{authorizationNumber}
+# The search page does NOT produce direct links — a search must be performed first.
+# If DOM scraping becomes necessary, Playwright must:
+#   1. Load /automated-vehicles/operators
+#   2. Select search type via: button[role="combobox"]  (Radix UI select)
+#   3. Fill input: input[name="searchValue"]
+#   4. Wait for table rows with links: a[href*="/automated-vehicles/operators/AV"]
+#
+# On detail page (after SPA renders):
+#   Operator name: look for text node following label "Company Name" in rendered body
+#   Status badge: look for text "Authorized" or "Not Authorized" in rendered body
+#   Vehicle count: len(vehicles) from API (shown as "Showing N of M rows" in UI)
+#   Vehicle type: rendered in table under "Registered Vehicles" section
+
+LIST_OPERATOR_LINKS = "a[href*='/automated-vehicles/operators/AV']"
+DETAIL_OPERATOR_NAME = "API: response['operator']['businessEntity']['legalName']"
+DETAIL_VEHICLE_COUNT = "API: len(response['vehicles'])"
+DETAIL_VEHICLE_TYPE = "API: response['vehicles'][n]['model']"
+DETAIL_STATUS = "API: response['operator']['status']"
