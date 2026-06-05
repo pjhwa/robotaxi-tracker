@@ -56,3 +56,15 @@ def test_parse_vehicles_response_mixed_models():
     assert result["vehicle_count"] == 2
     # vehicle_type should be most common model
     assert result["vehicle_type"] == "Model Y"
+
+
+def test_parse_vehicles_response_all_missing_models():
+    api_response = {
+        "vehicles": [
+            {"vin": "VIN1", "make": "TESLA"},  # no "model" key
+            {"vin": "VIN2", "make": "TESLA"},
+        ]
+    }
+    result = parse_vehicles_response(api_response)
+    assert result["vehicle_count"] == 2
+    assert result["vehicle_type"] == ""  # graceful empty, not a crash

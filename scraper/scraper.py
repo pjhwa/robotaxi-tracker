@@ -48,12 +48,13 @@ def parse_vehicles_response(api_response: dict) -> dict:
     if count == 0:
         return {"vehicle_count": 0, "vehicle_type": ""}
 
-    # Find most common model
+    # Find most common model, filtering out empty models
     model_counts: dict[str, int] = {}
     for v in vehicles:
-        model = v.get("model", "")
-        model_counts[model] = model_counts.get(model, 0) + 1
-    dominant_model = max(model_counts, key=lambda m: model_counts[m])
+        model = v.get("model", "").strip()
+        if model:
+            model_counts[model] = model_counts.get(model, 0) + 1
+    dominant_model = max(model_counts, key=lambda m: model_counts[m]) if model_counts else ""
 
     return {"vehicle_count": count, "vehicle_type": dominant_model}
 
@@ -70,8 +71,9 @@ def _search_operators(client: httpx.Client, query: str) -> list[str]:
         r.raise_for_status()
         data = r.json()
         return [
-            reg["authorizationNumber"]
+            reg.get("authorizationNumber")
             for reg in data.get("autonomousVehicleRegistrations", [])
+            if reg.get("authorizationNumber")
         ]
     except Exception as e:
         logger.warning("Search failed for query %r: %s", query, e)
@@ -83,7 +85,7 @@ def scrape_all_operators() -> list[dict]:
     Discover all AV operators and fetch their fleet data.
     Returns list of dicts with operator+vehicle data, ready to write to DB.
     """
-    with httpx.Client() as client:
+    with httpx.Client(timeout=20.0) as client:
         # Discover operator IDs via search + seed list
         discovered: set[str] = set(KNOWN_OPERATOR_IDS)
         for term in SEARCH_TERMS:
