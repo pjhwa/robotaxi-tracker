@@ -46,7 +46,6 @@ def test_insert_snapshot(db_path):
     assert row[0] == 42
 
 def test_push_subscriptions_table_created(db_path):
-    import sqlite3
     conn = sqlite3.connect(db_path)
     tables = {row[0] for row in conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'"
@@ -68,6 +67,7 @@ def test_save_subscription_upserts(db_path):
     subs = get_all_subscriptions(db_path)
     assert len(subs) == 1
     assert subs[0]["p256dh"] == "new_p256dh"
+    assert subs[0]["auth"] == "new_auth"
 
 def test_delete_subscription(db_path):
     save_subscription(db_path, "https://push.example.com/1", "p256dh_val", "auth_val")

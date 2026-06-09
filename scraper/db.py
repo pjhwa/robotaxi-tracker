@@ -83,6 +83,7 @@ def insert_snapshot(
 def save_subscription(db_path: str, endpoint: str, p256dh: str, auth: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys = ON")
     try:
         conn.execute("""
             INSERT OR REPLACE INTO push_subscriptions (endpoint, p256dh, auth, created_at)
@@ -107,6 +108,7 @@ def get_all_subscriptions(db_path: str) -> list[dict]:
 
 def delete_subscription(db_path: str, endpoint: str) -> None:
     conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys = ON")
     try:
         conn.execute(
             "DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,)
