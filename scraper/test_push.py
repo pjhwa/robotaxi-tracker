@@ -66,3 +66,23 @@ def test_notify_deletes_expired_subscription(db_path, tmp_path):
         main.notify_if_changed(db_path)
 
     assert get_all_subscriptions(db_path) == []
+
+
+def test_notify_deletes_404_subscription(db_path, tmp_path):
+    from pywebpush import WebPushException
+    insert_snapshot(db_path, "AV8313426653583", 100, "Model Y", "Authorized", "{}")
+    insert_snapshot(db_path, "AV8313426653583", 110, "Model Y", "Authorized", "{}")
+    save_subscription(db_path, "https://push.apple.com/test", "p256dh", "auth")
+
+    fake_key = tmp_path / "private_key.pem"
+    fake_key.write_text("fake")
+
+    not_found_response = MagicMock()
+    not_found_response.status_code = 404
+    exc = WebPushException("Not Found", response=not_found_response)
+
+    with patch("main.webpush", side_effect=exc), \
+         patch("main.VAPID_PRIVATE_KEY_PATH", str(fake_key)):
+        main.notify_if_changed(db_path)
+
+    assert get_all_subscriptions(db_path) == []

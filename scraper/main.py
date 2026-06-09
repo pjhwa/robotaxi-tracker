@@ -72,7 +72,7 @@ def notify_if_changed(db_path: str) -> None:
             )
             logger.info("Push sent: %s", body)
         except WebPushException as e:
-            if e.response and e.response.status_code == 410:
+            if e.response and e.response.status_code in (404, 410):
                 delete_subscription(db_path, sub["endpoint"])
                 logger.info("Removed expired subscription: %s", sub["endpoint"])
             else:

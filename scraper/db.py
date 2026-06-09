@@ -126,7 +126,7 @@ def get_tesla_recent_snapshots(db_path: str, operator_id: str, limit: int = 2) -
             SELECT vehicle_count, captured_at
             FROM snapshots
             WHERE operator_id = ?
-            ORDER BY captured_at DESC
+            ORDER BY captured_at DESC, id DESC
             LIMIT ?
         """, (operator_id, limit)).fetchall()
     finally:
