@@ -13,3 +13,6 @@ dist/
 
 # Env
 .env
+
+certs/
+vapid/
