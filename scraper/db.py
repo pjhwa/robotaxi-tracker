@@ -27,6 +27,14 @@ def init_db(db_path: str) -> None:
 
             CREATE INDEX IF NOT EXISTS idx_snapshots_operator_time
                 ON snapshots (operator_id, captured_at);
+
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                endpoint TEXT UNIQUE NOT NULL,
+                p256dh TEXT NOT NULL,
+                auth TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
         """)
         conn.commit()
     finally:
@@ -70,3 +78,55 @@ def insert_snapshot(
         conn.commit()
     finally:
         conn.close()
+
+
+def save_subscription(db_path: str, endpoint: str, p256dh: str, auth: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("""
+            INSERT OR REPLACE INTO push_subscriptions (endpoint, p256dh, auth, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (endpoint, p256dh, auth, now))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_all_subscriptions(db_path: str) -> list[dict]:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT endpoint, p256dh, auth FROM push_subscriptions"
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_subscription(db_path: str, endpoint: str) -> None:
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_tesla_recent_snapshots(db_path: str, operator_id: str, limit: int = 2) -> list[dict]:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute("""
+            SELECT vehicle_count, captured_at
+            FROM snapshots
+            WHERE operator_id = ?
+            ORDER BY captured_at DESC
+            LIMIT ?
+        """, (operator_id, limit)).fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]
