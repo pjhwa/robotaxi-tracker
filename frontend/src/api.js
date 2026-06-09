@@ -24,3 +24,32 @@ export async function fetchChangeEvents(page = 1) {
   if (!r.ok) throw new Error("Failed to fetch events");
   return r.json();
 }
+
+export async function fetchVapidPublicKey() {
+    const r = await fetch(`${BASE}/push/vapid-public-key`);
+    if (!r.ok) throw new Error("Failed to fetch VAPID key");
+    return r.json();
+}
+
+export async function subscribePush(subscription) {
+    const r = await fetch(`${BASE}/push/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            endpoint: subscription.endpoint,
+            keys: subscription.keys,
+        }),
+    });
+    if (!r.ok) throw new Error("Failed to save subscription");
+    return r.json();
+}
+
+export async function unsubscribePush(endpoint) {
+    const r = await fetch(`${BASE}/push/unsubscribe`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint }),
+    });
+    if (!r.ok) throw new Error("Failed to remove subscription");
+    return r.json();
+}

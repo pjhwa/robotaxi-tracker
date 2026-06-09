@@ -31,6 +31,52 @@
   color: #555;
 }
 
+.right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.notifyOn {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid #e82127;
+  background: transparent;
+  color: #e82127;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.notifyOn:hover {
+  background: #e82127;
+  color: #fff;
+}
+
+.notifyOn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notifyOff {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+}
+
+.notifyOff:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .status {
   display: flex;
   align-items: center;
