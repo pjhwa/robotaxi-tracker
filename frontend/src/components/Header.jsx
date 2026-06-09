@@ -25,13 +25,13 @@ export default function Header({ lastUpdated }) {
         if (!pushSupported) return;
         navigator.serviceWorker.ready.then(reg =>
             reg.pushManager.getSubscription()
-        ).then(sub => setSubscribed(!!sub));
+        ).then(sub => setSubscribed(!!sub)).catch(() => {});
     }, [pushSupported]);
 
     async function handleSubscribe() {
         setLoading(true);
         try {
-            const reg = await navigator.serviceWorker.register('/sw.js');
+            const reg = await navigator.serviceWorker.ready;
             const { publicKey } = await fetchVapidPublicKey();
             const sub = await reg.pushManager.subscribe({
                 userVisibleOnly: true,
@@ -52,8 +52,8 @@ export default function Header({ lastUpdated }) {
             const reg = await navigator.serviceWorker.ready;
             const sub = await reg.pushManager.getSubscription();
             if (sub) {
-                await unsubscribePush(sub.toJSON().endpoint);
                 await sub.unsubscribe();
+                await unsubscribePush(sub.toJSON().endpoint);
             }
             setSubscribed(false);
         } catch (e) {

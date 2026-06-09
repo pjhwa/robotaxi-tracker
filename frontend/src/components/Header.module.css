@@ -70,6 +70,7 @@
   background: transparent;
   color: #555;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
 .notifyOff:disabled {
