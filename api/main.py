@@ -21,7 +21,7 @@ app = FastAPI(title="Robotaxi Tracker API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -63,7 +63,7 @@ def get_vapid_public_key():
 
 @app.post("/push/subscribe", status_code=201)
 def subscribe(body: PushSubscriptionRequest):
-    save_push_subscription(DB_PATH, body.endpoint, body.keys["p256dh"], body.keys["auth"])
+    save_push_subscription(DB_PATH, body.endpoint, body.keys.p256dh, body.keys.auth)
     return {"ok": True}
 
 

@@ -43,9 +43,14 @@ class HealthResponse(BaseModel):
     status: str
 
 
+class PushKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
 class PushSubscriptionRequest(BaseModel):
     endpoint: str
-    keys: dict
+    keys: PushKeys
 
 
 class UnsubscribeRequest(BaseModel):
