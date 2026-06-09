@@ -41,3 +41,12 @@ class LatestSnapshot(BaseModel):
 class HealthResponse(BaseModel):
     last_scrape_at: Optional[str] = None
     status: str
+
+
+class PushSubscriptionRequest(BaseModel):
+    endpoint: str
+    keys: dict
+
+
+class UnsubscribeRequest(BaseModel):
+    endpoint: str

@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -110,3 +111,27 @@ def get_scraper_health(db_path: str) -> dict:
     finally:
         conn.close()
     return {"last_scrape_at": row["captured_at"] if row else None}
+
+
+def save_push_subscription(db_path: str, endpoint: str, p256dh: str, auth: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _conn(db_path)
+    try:
+        conn.execute("""
+            INSERT OR REPLACE INTO push_subscriptions (endpoint, p256dh, auth, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (endpoint, p256dh, auth, now))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_push_subscription(db_path: str, endpoint: str) -> None:
+    conn = _conn(db_path)
+    try:
+        conn.execute(
+            "DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,)
+        )
+        conn.commit()
+    finally:
+        conn.close()

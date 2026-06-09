@@ -57,3 +57,44 @@ def test_get_changes(client):
     r = client.get("/events/changes")
     assert r.status_code == 200
     assert isinstance(r.json(), list)
+
+def test_get_vapid_public_key(monkeypatch, tmp_path):
+    import os
+    import importlib
+    import sys
+    db = str(tmp_path / "test.db")
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../scraper'))
+    sys.path.insert(0, os.path.dirname(__file__))
+    from db import init_db, upsert_operator, insert_snapshot
+    init_db(db)
+    upsert_operator(db, "AV001", "Tesla", "AV001")
+    insert_snapshot(db, "AV001", 42, "Model Y", "Authorized", "{}")
+    monkeypatch.setenv("DB_PATH", db)
+    monkeypatch.setenv("VAPID_PUBLIC_KEY", "test_public_key_123")
+    import api_db, main as app_module
+    importlib.reload(api_db)
+    importlib.reload(app_module)
+    from fastapi.testclient import TestClient
+    from main import app
+    c = TestClient(app)
+    r = c.get("/push/vapid-public-key")
+    assert r.status_code == 200
+    assert r.json()["publicKey"] == "test_public_key_123"
+
+def test_subscribe(client):
+    payload = {
+        "endpoint": "https://web.push.apple.com/test",
+        "keys": {"p256dh": "p256dh_val", "auth": "auth_val"},
+    }
+    r = client.post("/push/subscribe", json=payload)
+    assert r.status_code == 201
+    assert r.json()["ok"] is True
+
+def test_unsubscribe(client):
+    client.post("/push/subscribe", json={
+        "endpoint": "https://web.push.apple.com/test",
+        "keys": {"p256dh": "p256dh_val", "auth": "auth_val"},
+    })
+    r = client.request("DELETE", "/push/unsubscribe", json={"endpoint": "https://web.push.apple.com/test"})
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
