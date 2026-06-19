@@ -14,6 +14,17 @@ export default function SummaryCards({ snapshots, teslaId }) {
             <div className={styles.teslaName}>Tesla Robotaxi</div>
             <div className={styles.teslaCount}>{tesla.vehicle_count ?? "—"}</div>
             <div className={styles.teslaLabel}>Vehicles Permitted · Texas</div>
+            {tesla.vehicle_composition && tesla.vehicle_composition.length > 0 && (
+              <div className={styles.compositionList}>
+                {tesla.vehicle_composition.map((item, i) => (
+                  <div key={i} className={styles.compositionRow}>
+                    <span className={styles.compositionModel}>{item.model}</span>
+                    <span className={styles.compositionYear}>{item.year ?? "—"}</span>
+                    <span className={styles.compositionCount}>{item.count}대</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           {teslaRank && (
             <div className={styles.teslaRight}>
