@@ -42,21 +42,37 @@ def parse_operator_detail(api_response: dict) -> dict:
 
 
 def parse_vehicles_response(api_response: dict) -> dict:
-    """Extract vehicle count and dominant model from /operators/{id}/vehicles response."""
+    """Extract vehicle count, dominant model, and composition breakdown."""
     vehicles = api_response.get("vehicles", [])
     count = len(vehicles)
     if count == 0:
-        return {"vehicle_count": 0, "vehicle_type": ""}
+        return {"vehicle_count": 0, "vehicle_type": "", "vehicle_composition": []}
 
-    # Find most common model, filtering out empty models
     model_counts: dict[str, int] = {}
+    composition_counts: dict[tuple, int] = {}
     for v in vehicles:
         model = v.get("model", "").strip()
         if model:
             model_counts[model] = model_counts.get(model, 0) + 1
+        key = (v.get("make", "").strip(), model, v.get("modelYear"))
+        composition_counts[key] = composition_counts.get(key, 0) + 1
+
     dominant_model = max(model_counts, key=lambda m: model_counts[m]) if model_counts else ""
 
-    return {"vehicle_count": count, "vehicle_type": dominant_model}
+    composition = sorted(
+        [
+            {"make": make, "model": model, "year": year, "count": cnt}
+            for (make, model, year), cnt in composition_counts.items()
+        ],
+        key=lambda x: x["count"],
+        reverse=True,
+    )
+
+    return {
+        "vehicle_count": count,
+        "vehicle_type": dominant_model,
+        "vehicle_composition": composition,
+    }
 
 
 def _search_operators(client: httpx.Client, query: str) -> list[str]:
