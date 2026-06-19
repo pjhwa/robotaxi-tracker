@@ -7,9 +7,7 @@ def test_parse_operator_detail_extracts_fields():
         "operator": {
             "authorizationNumber": "AV8313426653583",
             "status": "authorized",
-            "businessEntity": {
-                "legalName": "Tesla Robotaxi, LLC",
-            }
+            "legalName": "Tesla Robotaxi, LLC",
         }
     }
     result = parse_operator_detail(api_response)

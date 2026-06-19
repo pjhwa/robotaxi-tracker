@@ -33,9 +33,8 @@ SEARCH_TERMS = ["LLC", "Inc", "Corp", "AI", "Robotics", "Auto", "Mobility"]
 def parse_operator_detail(api_response: dict) -> dict:
     """Extract operator fields from /operators/{id} response."""
     op = api_response.get("operator", {})
-    entity = op.get("businessEntity", {})
     return {
-        "name": entity.get("legalName", ""),
+        "name": op.get("legalName", ""),
         "permit_number": op.get("authorizationNumber", ""),
         "status": op.get("status", ""),
     }
@@ -139,6 +138,7 @@ def scrape_all_operators() -> list[dict]:
                     "status": op_data["status"],
                     "vehicle_count": veh_data["vehicle_count"],
                     "vehicle_type": veh_data["vehicle_type"],
+                    "vehicle_composition": veh_data["vehicle_composition"],
                     "raw_json": json.dumps({
                         "detail": r_detail.json(),
                         "vehicles": r_vehicles.json(),
