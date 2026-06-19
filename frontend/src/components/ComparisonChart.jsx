@@ -17,9 +17,9 @@ export default function ComparisonChart({ snapshots, teslaId }) {
     <div className={styles.card}>
       <div className={styles.title}>Operator Comparison</div>
       <ResponsiveContainer width="100%" height={Math.max(data.length * 48 + 20, 80)}>
-        <BarChart data={data} layout="vertical" margin={{ left: 60, right: 48 }}>
+        <BarChart data={data} layout="vertical" margin={{ left: 8, right: 48 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" horizontal={false} />
-          <XAxis type="number" stroke="#2a2a2a" tick={{ fill: "#333", fontSize: 11, fontFamily: "Plus Jakarta Sans" }} />
+          <XAxis type="number" stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Plus Jakarta Sans" }} />
           <YAxis
             type="category"
             dataKey="name"
@@ -28,12 +28,12 @@ export default function ComparisonChart({ snapshots, teslaId }) {
               const item = data.find((d) => d.name === payload.value);
               return (
                 <text x={x} y={y} dy={4} textAnchor="end" fontSize={11} fontFamily="Plus Jakarta Sans"
-                  fill={item?.isTesla ? "#e82127" : "#333"}>
+                  fill={item?.isTesla ? "#e82127" : "#666"}>
                   {payload.value.replace(/ (LLC|INC|INCORPORATED|CO LLC)\.?$/i, "")}
                 </text>
               );
             }}
-            width={56}
+            width={180}
           />
           <Tooltip
             contentStyle={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 4, color: "#fff", fontFamily: "Plus Jakarta Sans", fontSize: 12 }}

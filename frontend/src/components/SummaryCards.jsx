@@ -4,8 +4,6 @@ export default function SummaryCards({ snapshots, teslaId }) {
   const sorted = [...snapshots].sort((a, b) => (b.vehicle_count ?? 0) - (a.vehicle_count ?? 0));
   const tesla = sorted.find((s) => s.operator_id === teslaId);
   const teslaRank = tesla ? sorted.findIndex((s) => s.operator_id === teslaId) + 1 : null;
-  const others = sorted.filter((s) => s.operator_id !== teslaId);
-
   return (
     <div className={styles.wrapper}>
       {tesla && (
@@ -34,19 +32,6 @@ export default function SummaryCards({ snapshots, teslaId }) {
         </div>
       )}
 
-      {others.length > 0 && (
-        <>
-          <div className={styles.othersLabel}>Other Operators</div>
-          <div className={styles.othersGrid}>
-            {others.map((s) => (
-              <div key={s.operator_id} className={styles.otherCard}>
-                <div className={styles.otherName}>{s.name}</div>
-                <div className={styles.otherCount}>{s.vehicle_count ?? "—"}</div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }
