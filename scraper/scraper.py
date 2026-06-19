@@ -54,7 +54,7 @@ def parse_vehicles_response(api_response: dict) -> dict:
         model = v.get("model", "").strip()
         if model:
             model_counts[model] = model_counts.get(model, 0) + 1
-        key = (v.get("make", "").strip(), model, v.get("modelYear"))
+        key = (v.get("make", "").strip(), v.get("model", "").strip(), v.get("modelYear"))
         composition_counts[key] = composition_counts.get(key, 0) + 1
 
     dominant_model = max(model_counts, key=lambda m: model_counts[m]) if model_counts else ""
