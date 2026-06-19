@@ -37,6 +37,13 @@ def init_db(db_path: str) -> None:
             );
         """)
         conn.commit()
+
+        # Migration: add vehicle_composition column if not present
+        try:
+            conn.execute("ALTER TABLE snapshots ADD COLUMN vehicle_composition TEXT")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
     finally:
         conn.close()
 
@@ -66,15 +73,16 @@ def insert_snapshot(
     vehicle_type: str,
     status: str,
     raw_json: str,
+    vehicle_composition: str = "",
 ) -> None:
     now = datetime.now(timezone.utc).isoformat()
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         conn.execute("""
-            INSERT INTO snapshots (operator_id, vehicle_count, vehicle_type, status, raw_json, captured_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (operator_id, vehicle_count, vehicle_type, status, raw_json, now))
+            INSERT INTO snapshots (operator_id, vehicle_count, vehicle_type, status, raw_json, vehicle_composition, captured_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (operator_id, vehicle_count, vehicle_type, status, raw_json, vehicle_composition or None, now))
         conn.commit()
     finally:
         conn.close()

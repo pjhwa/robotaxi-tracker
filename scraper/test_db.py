@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import tempfile
+import json
 import pytest
 from db import init_db, upsert_operator, insert_snapshot, \
     save_subscription, get_all_subscriptions, delete_subscription, \
@@ -82,3 +83,40 @@ def test_get_tesla_recent_snapshots(db_path):
     assert len(snaps) == 2
     assert snaps[0]["vehicle_count"] == 110
     assert snaps[1]["vehicle_count"] == 100
+
+
+def test_init_db_creates_vehicle_composition_column(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    init_db(db_path)
+    conn = sqlite3.connect(db_path)
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(snapshots)").fetchall()]
+    conn.close()
+    assert "vehicle_composition" in cols
+
+
+def test_insert_snapshot_stores_composition(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    init_db(db_path)
+    upsert_operator(db_path, "AV001", "Tesla", "AV001")
+    composition = json.dumps([{"make": "TESLA", "model": "Model Y", "year": 2026, "count": 5}])
+    insert_snapshot(db_path, "AV001", 5, "Model Y", "authorized", "{}", composition)
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT vehicle_composition FROM snapshots WHERE operator_id='AV001'").fetchone()
+    conn.close()
+    assert json.loads(row["vehicle_composition"]) == [
+        {"make": "TESLA", "model": "Model Y", "year": 2026, "count": 5}
+    ]
+
+
+def test_insert_snapshot_without_composition_defaults_to_empty(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    init_db(db_path)
+    upsert_operator(db_path, "AV001", "Tesla", "AV001")
+    insert_snapshot(db_path, "AV001", 5, "Model Y", "authorized", "{}")
+
+    conn = sqlite3.connect(db_path)
+    row = conn.execute("SELECT vehicle_composition FROM snapshots WHERE operator_id='AV001'").fetchone()
+    conn.close()
+    assert row[0] is None or row[0] == ""
