@@ -32,6 +32,7 @@ def run_scrape():
                 r["vehicle_type"],
                 r["status"],
                 r["raw_json"],
+                json.dumps(r.get("vehicle_composition", [])),
             )
         logger.info("Scrape complete: %d operators saved", len(results))
         notify_if_changed(DB_PATH)
