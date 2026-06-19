@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 
 
 class OperatorSummary(BaseModel):
@@ -9,6 +9,7 @@ class OperatorSummary(BaseModel):
     first_seen_at: Optional[str] = None
     vehicle_count: Optional[int] = None
     vehicle_type: Optional[str] = None
+    vehicle_composition: Optional[list[Any]] = None
     status: Optional[str] = None
     captured_at: Optional[str] = None
 
@@ -16,6 +17,7 @@ class OperatorSummary(BaseModel):
 class SnapshotPoint(BaseModel):
     vehicle_count: int
     vehicle_type: Optional[str] = None
+    vehicle_composition: Optional[list[Any]] = None
     status: Optional[str] = None
     captured_at: str
 
@@ -34,6 +36,7 @@ class LatestSnapshot(BaseModel):
     name: str
     vehicle_count: int
     vehicle_type: Optional[str] = None
+    vehicle_composition: Optional[list[Any]] = None
     status: Optional[str] = None
     captured_at: str
 

@@ -1,6 +1,20 @@
+import json
 import sqlite3
 from datetime import datetime, timezone
 from typing import Optional
+
+
+def _parse_composition(row: dict) -> dict:
+    """JSON string → list for vehicle_composition field."""
+    raw = row.get("vehicle_composition")
+    if raw:
+        try:
+            row["vehicle_composition"] = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            row["vehicle_composition"] = None
+    else:
+        row["vehicle_composition"] = None
+    return row
 
 
 def _conn(db_path: str) -> sqlite3.Connection:
@@ -14,7 +28,8 @@ def get_latest_snapshots(db_path: str) -> list[dict]:
     conn = _conn(db_path)
     try:
         rows = conn.execute("""
-            SELECT s.operator_id, o.name, s.vehicle_count, s.vehicle_type, s.status, s.captured_at
+            SELECT s.operator_id, o.name, s.vehicle_count, s.vehicle_type,
+                   s.vehicle_composition, s.status, s.captured_at
             FROM snapshots s
             JOIN operators o ON o.id = s.operator_id
             WHERE s.id = (
@@ -26,7 +41,7 @@ def get_latest_snapshots(db_path: str) -> list[dict]:
         """).fetchall()
     finally:
         conn.close()
-    return [dict(r) for r in rows]
+    return [_parse_composition(dict(r)) for r in rows]
 
 
 def get_operators_with_latest(db_path: str) -> list[dict]:
@@ -35,7 +50,7 @@ def get_operators_with_latest(db_path: str) -> list[dict]:
     try:
         rows = conn.execute("""
             SELECT o.id, o.name, o.permit_number, o.first_seen_at,
-                   s.vehicle_count, s.vehicle_type, s.status, s.captured_at
+                   s.vehicle_count, s.vehicle_type, s.vehicle_composition, s.status, s.captured_at
             FROM operators o
             LEFT JOIN snapshots s ON s.id = (
                 SELECT id FROM snapshots s2
@@ -46,7 +61,7 @@ def get_operators_with_latest(db_path: str) -> list[dict]:
         """).fetchall()
     finally:
         conn.close()
-    return [dict(r) for r in rows]
+    return [_parse_composition(dict(r)) for r in rows]
 
 
 def get_operator_history(db_path: str, operator_id: str, days: Optional[int]) -> list[dict]:

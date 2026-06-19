@@ -53,6 +53,21 @@ def test_get_health(client):
     assert "last_scrape_at" in body
     assert body["status"] == "ok"
 
+def test_get_operators_includes_composition(client):
+    r = client.get("/operators")
+    assert r.status_code == 200
+    data = r.json()
+    # vehicle_composition must exist (value may be None)
+    assert "vehicle_composition" in data[0]
+
+
+def test_get_snapshots_latest_includes_composition(client):
+    r = client.get("/snapshots/latest")
+    assert r.status_code == 200
+    data = r.json()
+    assert "vehicle_composition" in data[0]
+
+
 def test_get_changes(client):
     r = client.get("/events/changes")
     assert r.status_code == 200
