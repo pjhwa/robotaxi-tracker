@@ -1,5 +1,9 @@
 # Texas Robotaxi Tracker Implementation Plan
 
+> **Historical plan (2026-06-05).** Kept for implementation history.  
+> **Current system docs:** [README](../../../README.md) · [DATA_SOURCE](../../DATA_SOURCE.md) · [design spec](../specs/2026-06-05-robotaxi-tracker-design.md)  
+> Scraper is **httpx + TxMCCS company REST API** (not Playwright). Frontend is **HTTPS :8443**.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a Dockerized web dashboard that scrapes TxMCCS every 15 minutes and displays near-real-time Tesla/Waymo/etc fleet size trends with history.

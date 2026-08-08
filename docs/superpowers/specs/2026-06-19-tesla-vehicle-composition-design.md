@@ -1,8 +1,11 @@
 # Tesla Vehicle Composition Breakdown — Design Spec
 
 **Date:** 2026-06-19  
-**Status:** Approved
+**Status:** Implemented  
 
+> **Note (2026-08-08):** Vehicle list source is now  
+> `GET /api/TruckStop/companies/{businessEntityId}/automated-motor-vehicles`  
+> (not the removed `/operators/{id}/vehicles`). Composition parsing is unchanged.
 ## Goal
 
 Display Tesla Robotaxi의 차량 구성(생산연도 × 모델별 대수)을 Tesla SummaryCard에 표시한다.  

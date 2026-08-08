@@ -1,5 +1,7 @@
 # Web Push 알림 구현 계획
 
+> **Historical plan (2026-06-09).** Current ops: [README](../../../README.md) · [push design](../specs/2026-06-09-web-push-notifications-design.md). Frontend HTTPS **:8443**.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Tesla 차량 대수가 변경될 때 iPhone PWA(홈화면 추가)에 "Tesla 차량 N대 증가/감소 (old → new)" 형식으로 Web Push 알림을 전송한다.

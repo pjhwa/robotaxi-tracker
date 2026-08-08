@@ -1,7 +1,12 @@
 # Web Push 알림 설계 — Robotaxi Tracker
 
-**날짜:** 2026-06-09
+**날짜:** 2026-06-09  
+**상태:** Implemented  
 **범위:** Tesla 차량 대수 변경 시 iPhone PWA로 Web Push 알림 전송
+
+> **현행 (2026-08-08):** HTTPS 대시보드 포트 **8443**, VAPID 키(`.env` + `vapid/private_key.pem`).  
+> 스크랩이 실패하면 `notify_if_changed`는 호출되지 않는다. 수집 실패 자체는 Web Push가 아니라  
+> `/health` + UI 경고 배너로 표시한다. 운영 요약은 [README](../../../README.md), [DATA_SOURCE](../../DATA_SOURCE.md).
 
 ---
 

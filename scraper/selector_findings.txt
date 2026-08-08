@@ -100,24 +100,29 @@ OPERATOR_VEHICLES_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies/{busin
 # Vehicle VIN:        vehicles_response["vehicles"][n]["vin"]
 
 # ============================================================
-# DOM SELECTORS (only needed if API access is blocked in future)
+# SPA ROUTES (UI only; prefer REST above)
 # ============================================================
-# The SPA detail page URL pattern: /automated-vehicles/operators/{authorizationNumber}
-# The search page does NOT produce direct links — a search must be performed first.
-# If DOM scraping becomes necessary, Playwright must:
-#   1. Load /automated-vehicles/operators
-#   2. Select search type via: button[role="combobox"]  (Radix UI select)
-#   3. Fill input: input[name="searchValue"]
-#   4. Wait for table rows with links: a[href*="/automated-vehicles/operators/AV"]
+# Truck Stop company pages (post-2026-07 SPA):
+#   /truckstop/companies/:businessEntityId
+#   /truckstop/companies/:businessEntityId/automated-motor-vehicles
+#   /truckstop/companies/:businessEntityId/certificate
 #
-# On detail page (after SPA renders):
-#   Operator name: look for text node following label "Company Name" in rendered body
-#   Status badge: look for text "Authorized" or "Not Authorized" in rendered body
-#   Vehicle count: len(vehicles) from API (shown as "Showing N of M rows" in UI)
-#   Vehicle type: rendered in table under "Registered Vehicles" section
+# Older AV operator path patterns may still appear in assets; the public JSON
+# path for fleet counts is companies/{id}/automated-motor-vehicles.
 
-LIST_OPERATOR_LINKS = "a[href*='/automated-vehicles/operators/AV']"
-DETAIL_OPERATOR_NAME = "API: response['operator']['businessEntity']['legalName']"
-DETAIL_VEHICLE_COUNT = "API: len(response['vehicles'])"
-DETAIL_VEHICLE_TYPE = "API: response['vehicles'][n]['model']"
-DETAIL_STATUS = "API: response['operator']['status']"
+# ============================================================
+# FIELD SHORTCUTS (for scraper)
+# ============================================================
+# Operator name:      company["companyName"]  (strip ", DBA: ...")
+# Authorization #:    company["autonomousVehicleAuthorizationNumber"]
+# Status:             company["autonomousVehicleStatus"]
+# Business entity ID: company["businessEntityId"]
+# Vehicle count:      len(vehicles_response["vehicles"])
+# Vehicle model:      vehicles_response["vehicles"][n]["model"]
+
+DETAIL_OPERATOR_NAME = "API: company['companyName']"
+DETAIL_VEHICLE_COUNT = "API: len(automated-motor-vehicles['vehicles'])"
+DETAIL_VEHICLE_TYPE = "API: vehicles[n]['model'] (dominant)"
+DETAIL_STATUS = "API: company['autonomousVehicleStatus']"
+
+# Last verified live against TxMCCS: 2026-08-08

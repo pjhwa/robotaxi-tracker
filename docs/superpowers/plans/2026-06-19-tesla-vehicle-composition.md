@@ -1,5 +1,7 @@
 # Tesla Vehicle Composition Breakdown Implementation Plan
 
+> **Historical plan (2026-06-19).** Vehicle list API is now company-based — see [DATA_SOURCE](../../DATA_SOURCE.md) and [composition design](../specs/2026-06-19-tesla-vehicle-composition-design.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Tesla SummaryCard에 차량 모델×연도별 구성 breakdown을 표시한다 (예: Model Y 2026 × 48대).

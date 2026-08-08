@@ -1,16 +1,32 @@
-# React + Vite
+# Frontend (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Texas Robotaxi Tracker dashboard UI. Production build is served by Nginx with TLS (see `Dockerfile`, `nginx.conf`).
 
-Currently, two official plugins are available:
+## Local dev
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+Point API base at the backend (`/api` proxy is configured for production Nginx; for Vite dev you may need a proxy in `vite.config.js` or run against `http://localhost:8000`).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Production (Docker)
 
-## Expanding the ESLint configuration
+Built and served as the `frontend` service:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- Host: **https://localhost:8443**
+- Proxies `/api/*` → `api:8000`
+- TLS certs from `../certs/` (paths in `nginx.conf`)
+
+## Key UI pieces
+
+| Component | Role |
+|-----------|------|
+| `Header.jsx` | Live / Degraded / Stale / Offline + push button |
+| `ScrapeWarning.jsx` | Banner when `/health` status ≠ `ok` |
+| `SummaryCards.jsx` | Tesla card + composition |
+| `TrendChart.jsx` / `ComparisonChart.jsx` | Charts |
+| `ChangeLog.jsx` | Count-change events |
+
+See root [README.md](../README.md) and [docs/DATA_SOURCE.md](../docs/DATA_SOURCE.md).
