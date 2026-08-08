@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime, timezone
+from typing import Optional
 
 
 def init_db(db_path: str) -> None:
@@ -35,6 +36,17 @@ def init_db(db_path: str) -> None:
                 auth TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+
+            -- Singleton row (id=1) tracking the latest scrape attempt.
+            CREATE TABLE IF NOT EXISTS scrape_health (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                last_attempt_at TEXT,
+                last_success_at TEXT,
+                last_error TEXT,
+                operators_ok INTEGER DEFAULT 0,
+                operators_failed INTEGER DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'no_data'
+            );
         """)
         conn.commit()
 
@@ -44,8 +56,77 @@ def init_db(db_path: str) -> None:
             conn.commit()
         except sqlite3.OperationalError:
             pass  # column already exists
+
+        # Ensure singleton row exists
+        conn.execute("""
+            INSERT OR IGNORE INTO scrape_health (id, status)
+            VALUES (1, 'no_data')
+        """)
+        conn.commit()
     finally:
         conn.close()
+
+
+def record_scrape_health(
+    db_path: str,
+    status: str,
+    operators_ok: int = 0,
+    operators_failed: int = 0,
+    error: Optional[str] = None,
+    success: bool = False,
+) -> None:
+    """
+    Update the singleton scrape_health row.
+
+    status: 'ok' | 'degraded' | 'failed' | 'no_data'
+    success=True updates last_success_at (partial success counts).
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("""
+            INSERT INTO scrape_health (
+                id, last_attempt_at, last_success_at, last_error,
+                operators_ok, operators_failed, status
+            ) VALUES (1, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                last_attempt_at = excluded.last_attempt_at,
+                last_success_at = CASE
+                    WHEN ? THEN excluded.last_success_at
+                    ELSE scrape_health.last_success_at
+                END,
+                last_error = excluded.last_error,
+                operators_ok = excluded.operators_ok,
+                operators_failed = excluded.operators_failed,
+                status = excluded.status
+        """, (
+            now,
+            now if success else None,
+            error,
+            operators_ok,
+            operators_failed,
+            status,
+            1 if success else 0,
+        ))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_scrape_health(db_path: str) -> Optional[dict]:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            "SELECT last_attempt_at, last_success_at, last_error, "
+            "operators_ok, operators_failed, status "
+            "FROM scrape_health WHERE id = 1"
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    finally:
+        conn.close()
+    return dict(row) if row else None
 
 
 def upsert_operator(db_path: str, op_id: str, name: str, permit_number: str) -> None:

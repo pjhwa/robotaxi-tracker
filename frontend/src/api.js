@@ -25,6 +25,12 @@ export async function fetchChangeEvents(page = 1) {
   return r.json();
 }
 
+export async function fetchHealth() {
+  const r = await fetch(`${BASE}/health`);
+  if (!r.ok) throw new Error("Failed to fetch health");
+  return r.json();
+}
+
 export async function fetchVapidPublicKey() {
     const r = await fetch(`${BASE}/push/vapid-public-key`);
     if (!r.ok) throw new Error("Failed to fetch VAPID key");

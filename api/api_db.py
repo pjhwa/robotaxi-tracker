@@ -117,15 +117,89 @@ def get_change_events(db_path: str, page: int = 1, per_page: int = 20) -> list[d
     return [dict(r) for r in rows]
 
 
+# Data older than this is considered stale (3 scrape intervals of 15 min)
+STALE_AFTER_SECONDS = 45 * 60
+
+
 def get_scraper_health(db_path: str) -> dict:
+    """
+    Return scraper health including scrape_health row (if present) and
+    snapshot age. Status priority: no_data < failed < stale < degraded < ok
+    (worst applicable status wins for UI warnings).
+    """
     conn = _conn(db_path)
     try:
-        row = conn.execute("""
+        snap = conn.execute("""
             SELECT captured_at FROM snapshots ORDER BY captured_at DESC LIMIT 1
         """).fetchone()
+        try:
+            health = conn.execute("""
+                SELECT last_attempt_at, last_success_at, last_error,
+                       operators_ok, operators_failed, status
+                FROM scrape_health WHERE id = 1
+            """).fetchone()
+        except sqlite3.OperationalError:
+            health = None
     finally:
         conn.close()
-    return {"last_scrape_at": row["captured_at"] if row else None}
+
+    last_snapshot = snap["captured_at"] if snap else None
+    last_success = None
+    last_attempt = None
+    last_error = None
+    operators_ok = None
+    operators_failed = None
+    run_status = None
+
+    if health:
+        last_success = health["last_success_at"]
+        last_attempt = health["last_attempt_at"]
+        last_error = health["last_error"]
+        operators_ok = health["operators_ok"]
+        operators_failed = health["operators_failed"]
+        run_status = health["status"]
+
+    # Prefer scrape_health success time; fall back to latest snapshot
+    effective_success = last_success or last_snapshot
+
+    data_age_seconds = None
+    stale = False
+    if effective_success:
+        try:
+            # Support both with and without timezone suffix
+            ts = effective_success.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(ts)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            data_age_seconds = int((datetime.now(timezone.utc) - dt).total_seconds())
+            stale = data_age_seconds > STALE_AFTER_SECONDS
+        except (ValueError, TypeError):
+            pass
+
+    if not effective_success and not last_attempt:
+        status = "no_data"
+    elif run_status == "failed" or (operators_ok == 0 and last_attempt and not last_success):
+        status = "failed"
+    elif stale:
+        status = "stale"
+    elif run_status == "degraded":
+        status = "degraded"
+    elif run_status == "ok" or effective_success:
+        status = "ok"
+    else:
+        status = "no_data"
+
+    return {
+        "last_scrape_at": effective_success,
+        "last_attempt_at": last_attempt,
+        "last_success_at": last_success or last_snapshot,
+        "last_error": last_error,
+        "operators_ok": operators_ok,
+        "operators_failed": operators_failed,
+        "data_age_seconds": data_age_seconds,
+        "stale": stale,
+        "status": status,
+    }
 
 
 def save_push_subscription(db_path: str, endpoint: str, p256dh: str, auth: str) -> None:

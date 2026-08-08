@@ -51,9 +51,7 @@ def change_events(page: int = Query(1, ge=1)):
 
 @app.get("/health", response_model=HealthResponse)
 def health():
-    data = get_scraper_health(DB_PATH)
-    status = "ok" if data["last_scrape_at"] else "no_data"
-    return {**data, "status": status}
+    return get_scraper_health(DB_PATH)
 
 
 @app.get("/push/vapid-public-key")

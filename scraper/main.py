@@ -4,7 +4,8 @@ import os
 from apscheduler.schedulers.blocking import BlockingScheduler
 from pywebpush import webpush, WebPushException
 from db import init_db, upsert_operator, insert_snapshot, \
-    get_all_subscriptions, delete_subscription, get_tesla_recent_snapshots
+    get_all_subscriptions, delete_subscription, get_tesla_recent_snapshots, \
+    record_scrape_health
 from scraper import scrape_all_operators
 
 logging.basicConfig(
@@ -22,7 +23,7 @@ VAPID_CLAIM_EMAIL = os.environ.get("VAPID_CLAIM_EMAIL", "")
 def run_scrape():
     logger.info("Starting scrape run")
     try:
-        results = scrape_all_operators()
+        results, failures = scrape_all_operators()
         for r in results:
             upsert_operator(DB_PATH, r["operator_id"], r["name"], r["permit_number"])
             insert_snapshot(
@@ -34,10 +35,49 @@ def run_scrape():
                 r["raw_json"],
                 json.dumps(r.get("vehicle_composition", [])),
             )
-        logger.info("Scrape complete: %d operators saved", len(results))
-        notify_if_changed(DB_PATH)
+
+        n_ok = len(results)
+        n_fail = len(failures)
+        if n_ok == 0:
+            status = "failed"
+            error = "; ".join(failures[:5]) if failures else "No operators saved"
+            success = False
+        elif n_fail > 0:
+            status = "degraded"
+            error = f"{n_fail} operator(s) failed: " + "; ".join(failures[:5])
+            success = True
+        else:
+            status = "ok"
+            error = None
+            success = True
+
+        record_scrape_health(
+            DB_PATH,
+            status=status,
+            operators_ok=n_ok,
+            operators_failed=n_fail,
+            error=error,
+            success=success,
+        )
+        logger.info(
+            "Scrape complete: %d operators saved, %d failed (status=%s)",
+            n_ok, n_fail, status,
+        )
+        if success:
+            notify_if_changed(DB_PATH)
     except Exception as e:
         logger.error("Scrape run failed: %s", e, exc_info=True)
+        try:
+            record_scrape_health(
+                DB_PATH,
+                status="failed",
+                operators_ok=0,
+                operators_failed=0,
+                error=str(e),
+                success=False,
+            )
+        except Exception as rec_err:
+            logger.error("Failed to record scrape health: %s", rec_err)
 
 
 def notify_if_changed(db_path: str) -> None:

@@ -8,19 +8,19 @@ logger = logging.getLogger(__name__)
 API_BASE = "https://txmccs.txdmv.gov/api/TruckStop"
 HEADERS = {"Accept": "application/json"}
 
-# Seed list of known AV operator IDs (updated 2026-06-05)
+# Seed list of known AV operator authorization numbers
 KNOWN_OPERATOR_IDS = [
     "AV8313426653583",  # Tesla Robotaxi, LLC
     "AV8712526941758",  # Waymo LLC
     "AV3411026312345",  # BOT AUTO TX INC
     "AV1112826519229",  # Zoox, Inc.
     "AV6911226417664",  # KODIAK ROBOTICS INC
-    "AV2312026781376",  # AURORA OPERATIONS INC
+    "AV2312026781376",  # AURORA (may appear as AURORA INNOVATION INC)
     "AV5211226394189",  # MAY MOBILITY INC
     "AV4914126484158",  # NURO INC
     "AV7514626642616",  # GATIK AI INCORPORATED
     "AV4314726144439",  # TORC ROBOTICS INC
-    "AV4714826624272",  # WAABI LOGISTICS INC
+    "AV4714826624272",  # WAABI
     "AV9714626911749",  # PLUSAI INC
     "AV1211026841314",  # TRUCK OPCO LLC
     "AV6514726251949",  # INTERNATIONAL TRANSPORT ENGINEERING LLC
@@ -30,13 +30,58 @@ KNOWN_OPERATOR_IDS = [
 SEARCH_TERMS = ["LLC", "Inc", "Corp", "AI", "Robotics", "Auto", "Mobility"]
 
 
-def parse_operator_detail(api_response: dict) -> dict:
-    """Extract operator fields from /operators/{id} response."""
-    op = api_response.get("operator", {})
+def _clean_company_name(name: str) -> str:
+    """Strip trailing DBA suffix from companyName fields."""
+    if not name:
+        return ""
+    if ", DBA:" in name:
+        name = name.split(", DBA:")[0]
+    return name.strip()
+
+
+def parse_company(api_response: dict) -> dict:
+    """
+    Extract operator fields from company detail or search result.
+
+    New TxMCCS shape (2026-07-30+):
+      companyName, autonomousVehicleAuthorizationNumber,
+      autonomousVehicleStatus, businessEntityId
+    """
     return {
-        "name": op.get("legalName", ""),
-        "permit_number": op.get("authorizationNumber", ""),
-        "status": op.get("status", ""),
+        "name": _clean_company_name(api_response.get("companyName", "") or ""),
+        "permit_number": api_response.get("autonomousVehicleAuthorizationNumber", "") or "",
+        "status": api_response.get("autonomousVehicleStatus", "") or "",
+        "business_entity_id": api_response.get("businessEntityId", "") or "",
+    }
+
+
+# Backwards-compatible alias used by older tests / callers
+def parse_operator_detail(api_response: dict) -> dict:
+    """
+    Accept either new company payload or legacy operator wrapper.
+
+    Legacy:
+      {"operator": {"legalName", "authorizationNumber", "status"}}
+    New:
+      {"companyName", "autonomousVehicleAuthorizationNumber", ...}
+      or {"operator": {...company fields...}}
+    """
+    if "companyName" in api_response or "autonomousVehicleAuthorizationNumber" in api_response:
+        return parse_company(api_response)
+
+    op = api_response.get("operator", {})
+    # New fields nested under operator
+    if "companyName" in op or "autonomousVehicleAuthorizationNumber" in op:
+        return parse_company(op)
+
+    # Fully legacy shape
+    return {
+        "name": op.get("legalName", "") or _clean_company_name(op.get("companyName", "")),
+        "permit_number": op.get("authorizationNumber", "")
+        or op.get("autonomousVehicleAuthorizationNumber", "")
+        or "",
+        "status": op.get("status", "") or op.get("autonomousVehicleStatus", "") or "",
+        "business_entity_id": op.get("businessEntityId", "") or "",
     }
 
 
@@ -74,78 +119,119 @@ def parse_vehicles_response(api_response: dict) -> dict:
     }
 
 
-def _search_operators(client: httpx.Client, query: str) -> list[str]:
-    """Search for operator authorization numbers by keyword. Returns list of IDs."""
+def _search_companies(
+    client: httpx.Client,
+    query: str,
+    search_type: str = "company_name",
+) -> list[dict]:
+    """
+    Search companies. Returns only results that have an AV authorization number.
+    """
     try:
         r = client.get(
             f"{API_BASE}/companies",
-            params={"searchType": "company_name", "searchValue": query},
+            params={"searchType": search_type, "searchValue": query},
             headers=HEADERS,
             timeout=15,
         )
         r.raise_for_status()
         data = r.json()
-        return [
-            reg.get("authorizationNumber")
-            for reg in data.get("autonomousVehicleRegistrations", [])
-            if reg.get("authorizationNumber")
-        ]
+        results = []
+        for reg in data.get("results", []):
+            if reg.get("autonomousVehicleAuthorizationNumber") and reg.get("businessEntityId"):
+                results.append(reg)
+        return results
     except Exception as e:
-        logger.warning("Search failed for query %r: %s", query, e)
+        logger.warning("Search failed for query %r (type=%s): %s", query, search_type, e)
         return []
 
 
-def scrape_all_operators() -> list[dict]:
+def scrape_all_operators() -> tuple[list[dict], list[str]]:
     """
     Discover all AV operators and fetch their fleet data.
-    Returns list of dicts with operator+vehicle data, ready to write to DB.
+
+    Returns:
+      (results, failures) where results is a list of operator+vehicle dicts
+      ready to write to DB, and failures is a list of error strings.
     """
+    failures: list[str] = []
+
     with httpx.Client(timeout=20.0) as client:
-        # Discover operator IDs via search + seed list
-        discovered: set[str] = set(KNOWN_OPERATOR_IDS)
+        # auth_number -> company search result (has businessEntityId)
+        discovered: dict[str, dict] = {}
+
+        # 1) Resolve known seed IDs via authorization-number search
+        #    (name search alone can miss operators like Aurora)
+        for op_id in KNOWN_OPERATOR_IDS:
+            for reg in _search_companies(
+                client, op_id, search_type="autonomous_vehicle_authorization_number"
+            ):
+                auth = reg["autonomousVehicleAuthorizationNumber"]
+                discovered[auth] = reg
+
+        # 2) Discover additional operators via name search
         for term in SEARCH_TERMS:
-            ids = _search_operators(client, term)
-            discovered.update(ids)
+            for reg in _search_companies(client, term, search_type="company_name"):
+                auth = reg["autonomousVehicleAuthorizationNumber"]
+                discovered[auth] = reg
 
         logger.info("Scraping %d operators", len(discovered))
 
+        if not discovered:
+            failures.append("No operators discovered via TxMCCS search")
+            return [], failures
+
         results = []
-        for op_id in sorted(discovered):
+        for auth in sorted(discovered.keys()):
+            company = discovered[auth]
+            be_id = company["businessEntityId"]
             try:
-                # Fetch operator detail
                 r_detail = client.get(
-                    f"{API_BASE}/operators/{op_id}",
+                    f"{API_BASE}/companies/{be_id}",
                     headers=HEADERS,
                     timeout=15,
                 )
                 r_detail.raise_for_status()
+                detail_json = r_detail.json()
 
-                # Fetch vehicle list
                 r_vehicles = client.get(
-                    f"{API_BASE}/operators/{op_id}/vehicles",
+                    f"{API_BASE}/companies/{be_id}/automated-motor-vehicles",
                     headers=HEADERS,
                     timeout=15,
                 )
                 r_vehicles.raise_for_status()
+                vehicles_json = r_vehicles.json()
 
-                op_data = parse_operator_detail(r_detail.json())
-                veh_data = parse_vehicles_response(r_vehicles.json())
+                # Prefer detail payload; fall back to search result fields
+                op_data = parse_company({**company, **detail_json})
+                # Ensure permit_number is the auth number even if detail omits it
+                if not op_data["permit_number"]:
+                    op_data["permit_number"] = auth
+
+                veh_data = parse_vehicles_response(vehicles_json)
 
                 results.append({
-                    "operator_id": op_id,
-                    "name": op_data["name"],
-                    "permit_number": op_data["permit_number"],
-                    "status": op_data["status"],
+                    "operator_id": auth,
+                    "name": op_data["name"] or company.get("companyName", auth),
+                    "permit_number": op_data["permit_number"] or auth,
+                    "status": op_data["status"] or company.get("autonomousVehicleStatus", ""),
                     "vehicle_count": veh_data["vehicle_count"],
                     "vehicle_type": veh_data["vehicle_type"],
                     "vehicle_composition": veh_data["vehicle_composition"],
                     "raw_json": json.dumps({
-                        "detail": r_detail.json(),
-                        "vehicles": r_vehicles.json(),
+                        "detail": detail_json,
+                        "vehicles": vehicles_json,
                     }),
                 })
-                logger.info("Scraped %s: %s (%d vehicles)", op_id, op_data["name"], veh_data["vehicle_count"])
+                logger.info(
+                    "Scraped %s: %s (%d vehicles)",
+                    auth,
+                    op_data["name"],
+                    veh_data["vehicle_count"],
+                )
             except Exception as e:
-                logger.error("Failed to scrape operator %s: %s", op_id, e)
+                msg = f"{auth}: {e}"
+                logger.error("Failed to scrape operator %s: %s", auth, e)
+                failures.append(msg)
 
-        return results
+        return results, failures

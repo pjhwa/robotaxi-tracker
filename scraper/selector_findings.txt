@@ -12,91 +12,62 @@
 # API BASE URL
 # ============================================================
 API_BASE = "https://txmccs.txdmv.gov/api/TruckStop"
+#
+# BREAKING CHANGE (2026-07-30):
+# Old endpoints /operators/{auth} and /operators/{auth}/vehicles now return SPA HTML.
+# Public read path is company-centric (businessEntityId).
 
 # ============================================================
 # SEARCH / LIST OPERATORS
 # ============================================================
 # Endpoint: GET /api/TruckStop/companies
 # Query params:
-#   searchType = "company_name" | "authorization_number" | "address" | "usdot"
-#   searchValue = search string (min 4 chars)
+#   searchType = "company_name" | "autonomous_vehicle_authorization_number"
+#                | "address" | "usdot"
+#   searchValue = search string
 #
 # Example:
-#   GET https://txmccs.txdmv.gov/api/TruckStop/companies?searchType=company_name&searchValue=Tesla
+#   GET .../companies?searchType=company_name&searchValue=Tesla
+#   GET .../companies?searchType=autonomous_vehicle_authorization_number&searchValue=AV8313426653583
 #
-# Response shape:
+# Response shape (2026-07-30+):
 # {
-#   "certificates": [],
-#   "autonomousVehicleRegistrations": [
+#   "results": [
 #     {
-#       "type": "autonomous_vehicle_registration",
-#       "authorizationNumber": "AV8313426653583",
-#       "status": "authorized",             // "authorized" | "not_authorized"
-#       "businessEntityId": "...",
+#       "businessEntityId": "81edcff1-...",
 #       "companyName": "Tesla Robotaxi, LLC, DBA: Tesla Robotaxi, LLC",
+#       "autonomousVehicleAuthorizationNumber": "AV8313426653583",  // only if AV
+#       "autonomousVehicleStatus": "authorized",
 #       "physicalAddress": { ... },
 #       "mailingAddress": { ... }
 #     }
 #   ],
-#   "total": 1
+#   "total": 3
 # }
 #
-# NOTE: search is required — no "list all" endpoint observed.
-# To enumerate all AV operators, search for common suffixes: "LLC", "Inc", "Corp", etc.
-# Known authorized robotaxi operators as of 2026-06-05:
-#   AV8313426653583  Tesla Robotaxi, LLC
-#   AV8712526941758  Waymo LLC
-#   AV3411026312345  BOT AUTO TX INC
-#   AV1112826519229  Zoox, Inc.
-#   AV6911226417664  KODIAK ROBOTICS INC
-#   AV2312026781376  AURORA OPERATIONS INC
-#   AV5211226394189  MAY MOBILITY INC
-#   AV4914126484158  NURO INC
-#   AV7514626642616  GATIK AI INCORPORATED
-#   AV4314726144439  TORC ROBOTICS INC
-#   AV4714826624272  WAABI LOGISTICS INC
-#   AV9714626911749  PLUSAI INC
-#   AV1211026841314  TRUCK OPCO LLC
-#   AV6514726251949  INTERNATIONAL TRANSPORT ENGINEERING LLC
+# NOTE: Many non-AV motor carriers appear in company_name search.
+# Filter to rows that have autonomousVehicleAuthorizationNumber.
+# Seed known auth numbers via autonomous_vehicle_authorization_number search —
+# name search alone can miss some operators (e.g. Aurora rebrand).
 
 SEARCH_OPERATORS_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies?searchType=company_name&searchValue={query}"
 
 # ============================================================
-# OPERATOR DETAIL
+# COMPANY DETAIL
 # ============================================================
-# Endpoint: GET /api/TruckStop/operators/{authorizationNumber}
+# Endpoint: GET /api/TruckStop/companies/{businessEntityId}
 #
-# Example:
-#   GET https://txmccs.txdmv.gov/api/TruckStop/operators/AV8313426653583
-#
-# Response shape:
-# {
-#   "operator": {
-#     "id": "...",
-#     "status": "authorized",
-#     "authorizationNumber": "AV8313426653583",
-#     "submittedAt": "2026-05-14T20:25:27.396148+00:00",
-#     "grantedAt": "2026-05-14T20:25:27.417266+00:00",
-#     "businessEntity": {
-#       "legalName": "Tesla Robotaxi, LLC",
-#       "dbaName": "Tesla Robotaxi, LLC",
-#       "businessType": "limited_liability_company",
-#       "physicalAddress": { "fullAddress": "1 Tesla Road , Austin, TX 78725", ... },
-#       "mailingAddress": { ... }
-#     },
-#     "certification": { ... }
-#   }
-# }
+# Response includes:
+#   companyName, businessEntityId,
+#   autonomousVehicleAuthorizationNumber, autonomousVehicleStatus,
+#   autonomousVehicleAuthorizedAt, ...
 
-OPERATOR_DETAIL_URL = "https://txmccs.txdmv.gov/api/TruckStop/operators/{authorizationNumber}"
+COMPANY_DETAIL_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies/{businessEntityId}"
 
 # ============================================================
 # VEHICLE LIST
 # ============================================================
-# Endpoint: GET /api/TruckStop/operators/{authorizationNumber}/vehicles
-#
-# Example:
-#   GET https://txmccs.txdmv.gov/api/TruckStop/operators/AV8313426653583/vehicles
+# Endpoint: GET /api/TruckStop/companies/{businessEntityId}/automated-motor-vehicles
 #
 # Response shape:
 # {
@@ -111,20 +82,17 @@ OPERATOR_DETAIL_URL = "https://txmccs.txdmv.gov/api/TruckStop/operators/{authori
 #   ]
 # }
 #
-# NOTE: Returns ALL vehicles (no pagination). Tesla has 51 as of 2026-06-05.
 # Vehicle count = len(response["vehicles"])
-# Vehicle make = vehicle["make"]
-# Vehicle model = vehicle["model"]
 
-OPERATOR_VEHICLES_URL = "https://txmccs.txdmv.gov/api/TruckStop/operators/{authorizationNumber}/vehicles"
+OPERATOR_VEHICLES_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies/{businessEntityId}/automated-motor-vehicles"
 
 # ============================================================
 # DATA FIELD MAPPINGS (from API JSON, not DOM)
 # ============================================================
-# Operator name:      response["operator"]["businessEntity"]["legalName"]
-# DBA name:           response["operator"]["businessEntity"]["dbaName"]
-# Authorization #:    response["operator"]["authorizationNumber"]
-# Status:             response["operator"]["status"]   ("authorized" | "not_authorized")
+# Operator name:      company["companyName"]  (strip ", DBA: ...")
+# Authorization #:    company["autonomousVehicleAuthorizationNumber"]
+# Status:             company["autonomousVehicleStatus"]  ("authorized" | "not_authorized")
+# Business entity:    company["businessEntityId"]
 # Vehicle count:      len(vehicles_response["vehicles"])
 # Vehicle make:       vehicles_response["vehicles"][n]["make"]
 # Vehicle model:      vehicles_response["vehicles"][n]["model"]

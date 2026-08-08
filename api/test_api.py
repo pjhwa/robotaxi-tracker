@@ -51,7 +51,26 @@ def test_get_health(client):
     assert r.status_code == 200
     body = r.json()
     assert "last_scrape_at" in body
-    assert body["status"] == "ok"
+    assert "stale" in body
+    assert "status" in body
+    # Fresh fixture snapshot → ok (or stale only if clock skew extreme)
+    assert body["status"] in ("ok", "stale")
+
+
+def test_get_health_reflects_failed_scrape(client, monkeypatch, tmp_path):
+    import os
+    from db import record_scrape_health
+    db = os.environ["DB_PATH"]
+    record_scrape_health(
+        db, status="failed", operators_ok=0, operators_failed=5,
+        error="Expecting value", success=False,
+    )
+    r = client.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "failed"
+    assert body["last_error"] == "Expecting value"
+    assert body["operators_failed"] == 5
 
 def test_get_operators_includes_composition(client):
     r = client.get("/operators")

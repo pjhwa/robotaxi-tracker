@@ -43,7 +43,14 @@ class LatestSnapshot(BaseModel):
 
 class HealthResponse(BaseModel):
     last_scrape_at: Optional[str] = None
-    status: str
+    last_attempt_at: Optional[str] = None
+    last_success_at: Optional[str] = None
+    last_error: Optional[str] = None
+    operators_ok: Optional[int] = None
+    operators_failed: Optional[int] = None
+    data_age_seconds: Optional[int] = None
+    stale: bool = False
+    status: str  # ok | degraded | failed | stale | no_data
 
 
 class PushKeys(BaseModel):

@@ -9,10 +9,28 @@ function urlBase64ToUint8Array(base64String) {
     return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
-export default function Header({ lastUpdated }) {
+function statusMeta(health) {
+    const status = health?.status || "ok";
+    if (status === "ok") {
+        return { label: "Live", tone: "ok" };
+    }
+    if (status === "degraded") {
+        return { label: "Degraded", tone: "warn" };
+    }
+    if (status === "stale") {
+        return { label: "Stale", tone: "warn" };
+    }
+    if (status === "failed") {
+        return { label: "Offline", tone: "error" };
+    }
+    return { label: "No data", tone: "error" };
+}
+
+export default function Header({ lastUpdated, health }) {
     const ago = lastUpdated
         ? Math.round((Date.now() - new Date(lastUpdated).getTime()) / 60000)
         : null;
+    const { label, tone } = statusMeta(health);
 
     const pushSupported = typeof window !== 'undefined'
         && 'serviceWorker' in navigator
@@ -80,10 +98,14 @@ export default function Header({ lastUpdated }) {
                     </button>
                 )}
                 <div className={styles.status}>
-                    <span className={styles.liveDot} />
-                    <span className={styles.liveLabel}>Live</span>
+                    <span className={`${styles.liveDot} ${styles[`dot_${tone}`]}`} />
+                    <span className={`${styles.liveLabel} ${styles[`label_${tone}`]}`}>{label}</span>
                     <span className={styles.updatedAt}>
-                        {ago !== null ? `Updated ${ago}m ago` : "No data"}
+                        {ago !== null
+                            ? (ago >= 60
+                                ? `Updated ${Math.floor(ago / 60)}h ${ago % 60}m ago`
+                                : `Updated ${ago}m ago`)
+                            : "No data"}
                     </span>
                 </div>
             </div>

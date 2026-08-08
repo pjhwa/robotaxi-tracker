@@ -4,10 +4,12 @@ import SummaryCards from "./components/SummaryCards";
 import TrendChart from "./components/TrendChart";
 import ComparisonChart from "./components/ComparisonChart";
 import ChangeLog from "./components/ChangeLog";
+import ScrapeWarning from "./components/ScrapeWarning";
 import {
   fetchLatestSnapshots,
   fetchOperatorHistory,
   fetchChangeEvents,
+  fetchHealth,
 } from "./api";
 
 const TESLA_PERMIT = "AV8313426653583";
@@ -62,19 +64,22 @@ export default function App() {
   const [period, setPeriod] = useState(30);
   const [eventsPage, setEventsPage] = useState(1);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [health, setHealth] = useState(null);
   const [error, setError] = useState(null);
 
   const loadAll = useCallback(async () => {
     try {
-      const [snaps, hist, evts] = await Promise.all([
+      const [snaps, hist, evts, h] = await Promise.all([
         fetchLatestSnapshots(),
         fetchOperatorHistory(TESLA_PERMIT, period),
         fetchChangeEvents(eventsPage),
+        fetchHealth(),
       ]);
       setSnapshots(snaps);
       setHistory(hist);
       setEvents(evts);
-      setLastUpdated(new Date().toISOString());
+      setHealth(h);
+      setLastUpdated(h?.last_success_at || h?.last_scrape_at || new Date().toISOString());
       setError(null);
     } catch (e) {
       setError("Failed to load data: " + e.message);
@@ -89,9 +94,10 @@ export default function App() {
 
   return (
     <div style={{ background: "#000", minHeight: "100vh" }}>
-      <Header lastUpdated={lastUpdated} />
+      <Header lastUpdated={lastUpdated} health={health} />
       <main style={mainStyle}>
         {error && <div style={errorStyle}>{error}</div>}
+        <ScrapeWarning health={health} />
         <SummaryCards snapshots={snapshots} teslaId={TESLA_PERMIT} />
         <TrendChart history={history} period={period} onPeriodChange={setPeriod} />
         <ComparisonChart snapshots={snapshots} teslaId={TESLA_PERMIT} />

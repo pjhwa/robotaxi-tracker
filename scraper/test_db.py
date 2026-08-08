@@ -5,7 +5,7 @@ import json
 import pytest
 from db import init_db, upsert_operator, insert_snapshot, \
     save_subscription, get_all_subscriptions, delete_subscription, \
-    get_tesla_recent_snapshots
+    get_tesla_recent_snapshots, record_scrape_health, get_scrape_health
 
 @pytest.fixture
 def db_path():
@@ -120,3 +120,38 @@ def test_insert_snapshot_without_composition_defaults_to_empty(tmp_path):
     row = conn.execute("SELECT vehicle_composition FROM snapshots WHERE operator_id='AV001'").fetchone()
     conn.close()
     assert row[0] is None or row[0] == ""
+
+
+def test_scrape_health_table_created(db_path):
+    conn = sqlite3.connect(db_path)
+    tables = {row[0] for row in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()}
+    conn.close()
+    assert "scrape_health" in tables
+
+
+def test_record_and_get_scrape_health_success(db_path):
+    record_scrape_health(db_path, status="ok", operators_ok=14, operators_failed=0, success=True)
+    h = get_scrape_health(db_path)
+    assert h is not None
+    assert h["status"] == "ok"
+    assert h["operators_ok"] == 14
+    assert h["operators_failed"] == 0
+    assert h["last_attempt_at"] is not None
+    assert h["last_success_at"] is not None
+    assert h["last_error"] is None
+
+
+def test_record_scrape_health_failure_preserves_last_success(db_path):
+    record_scrape_health(db_path, status="ok", operators_ok=10, success=True)
+    first = get_scrape_health(db_path)
+    record_scrape_health(
+        db_path, status="failed", operators_ok=0, operators_failed=10,
+        error="API down", success=False,
+    )
+    h = get_scrape_health(db_path)
+    assert h["status"] == "failed"
+    assert h["last_error"] == "API down"
+    assert h["last_success_at"] == first["last_success_at"]
+    assert h["last_attempt_at"] != first["last_attempt_at"] or h["last_attempt_at"] is not None

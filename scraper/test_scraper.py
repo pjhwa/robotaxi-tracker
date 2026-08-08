@@ -1,8 +1,43 @@
 import pytest
-from scraper import parse_operator_detail, parse_vehicles_response
+from scraper import parse_operator_detail, parse_company, parse_vehicles_response
 
 
-def test_parse_operator_detail_extracts_fields():
+def test_parse_company_extracts_fields():
+    api_response = {
+        "businessEntityId": "81edcff1-8a6e-4ed0-be1f-60668515e223",
+        "companyName": "Tesla Robotaxi, LLC, DBA: Tesla Robotaxi, LLC",
+        "autonomousVehicleAuthorizationNumber": "AV8313426653583",
+        "autonomousVehicleStatus": "authorized",
+    }
+    result = parse_company(api_response)
+    assert result["name"] == "Tesla Robotaxi, LLC"
+    assert result["permit_number"] == "AV8313426653583"
+    assert result["status"] == "authorized"
+    assert result["business_entity_id"] == "81edcff1-8a6e-4ed0-be1f-60668515e223"
+
+
+def test_parse_company_handles_missing_fields():
+    result = parse_company({})
+    assert result["name"] == ""
+    assert result["permit_number"] == ""
+    assert result["status"] == ""
+    assert result["business_entity_id"] == ""
+
+
+def test_parse_operator_detail_new_company_shape():
+    api_response = {
+        "companyName": "Waymo LLC",
+        "autonomousVehicleAuthorizationNumber": "AV8712526941758",
+        "autonomousVehicleStatus": "authorized",
+        "businessEntityId": "abc-123",
+    }
+    result = parse_operator_detail(api_response)
+    assert result["name"] == "Waymo LLC"
+    assert result["permit_number"] == "AV8712526941758"
+    assert result["status"] == "authorized"
+
+
+def test_parse_operator_detail_legacy_shape():
     api_response = {
         "operator": {
             "authorizationNumber": "AV8313426653583",
