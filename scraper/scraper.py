@@ -8,26 +8,54 @@ logger = logging.getLogger(__name__)
 API_BASE = "https://txmccs.txdmv.gov/api/TruckStop"
 HEADERS = {"Accept": "application/json"}
 
-# Seed list of known AV operator authorization numbers
-KNOWN_OPERATOR_IDS = [
-    "AV8313426653583",  # Tesla Robotaxi, LLC
-    "AV8712526941758",  # Waymo LLC
-    "AV3411026312345",  # BOT AUTO TX INC
-    "AV1112826519229",  # Zoox, Inc.
-    "AV6911226417664",  # KODIAK ROBOTICS INC
-    "AV2312026781376",  # AURORA (may appear as AURORA INNOVATION INC)
-    "AV5211226394189",  # MAY MOBILITY INC
-    "AV4914126484158",  # NURO INC
-    "AV7514626642616",  # GATIK AI INCORPORATED
-    "AV4314726144439",  # TORC ROBOTICS INC
-    "AV4714826624272",  # WAABI
-    "AV9714626911749",  # PLUSAI INC
-    "AV1211026841314",  # TRUCK OPCO LLC
-    "AV6514726251949",  # INTERNATIONAL TRANSPORT ENGINEERING LLC
+# Known AV operators: (auth_number, business_entity_id, company_name_search)
+# Primary discovery is company_name search + hardcoded businessEntityId fallback.
+# Auth-number search (searchType=autonomous_vehicle_authorization_number) currently
+# returns total=0 for all known AV numbers (verified 2026-09-01) and must not be
+# the only seed path.
+KNOWN_OPERATORS = [
+    ("AV8313426653583", "81edcff1-8a6e-4ed0-be1f-60668515e223", "Tesla Robotaxi"),
+    ("AV8712526941758", "07ebbc43-ae5b-42ca-a712-d9d5ce5b3516", "Waymo"),
+    ("AV3411026312345", "a984e056-d778-416b-af45-03188239089c", "BOT AUTO"),
+    ("AV1112826519229", "b5672c35-0996-4364-8ac7-080ea0333d2c", "Zoox"),
+    ("AV6911226417664", "51e635a0-1649-419d-86b4-76a3107e3240", "Kodiak"),
+    ("AV2312026781376", "e2ec8d3a-51c0-47fd-8172-49b1ca545ad3", "Aurora"),
+    ("AV5211226394189", "2fb8d9e8-5add-4c1e-b746-58494b3661d8", "May Mobility"),
+    ("AV4914126484158", "a073be41-e321-4074-9515-01279a9f36d7", "Nuro"),
+    ("AV7514626642616", "c7252bd3-9b9a-4dfe-98e2-db205010f93c", "Gatik"),
+    ("AV4314726144439", "fcf5ffd0-e90d-4aa6-9afa-6c002c2cf511", "Torc"),
+    ("AV4714826624272", "43448d49-5ea9-4769-afcb-ffc5ca3f3cbb", "Waabi"),
+    ("AV9714626911749", "15d49349-4d6f-4357-9138-b50547a027ad", "PlusAI"),
+    ("AV1211026841314", "f77bbbc9-8f1f-4272-861f-8bec46cd0587", "TRUCK OPCO"),
+    ("AV6514726251949", "625de9a0-ac22-4bdd-80d5-fbe638bcd74f", "INTERNATIONAL TRANSPORT ENGINEERING"),
 ]
 
-# Search terms to discover new operators not in the seed list
-SEARCH_TERMS = ["LLC", "Inc", "Corp", "AI", "Robotics", "Auto", "Mobility"]
+# Backwards-compatible list of auth numbers only
+KNOWN_OPERATOR_IDS = [auth for auth, _, _ in KNOWN_OPERATORS]
+
+# Specific operator name terms for discovery (preferred over broad LLC/Inc).
+# Broad terms like LLC/Inc match tens of thousands of carriers (page size 20) and
+# are nearly useless for AV discovery — keep them optional and secondary.
+OPERATOR_NAME_TERMS = [
+    "Tesla Robotaxi",
+    "Robotaxi",
+    "Waymo",
+    "Zoox",
+    "Aurora",
+    "Kodiak",
+    "May Mobility",
+    "Nuro",
+    "Gatik",
+    "Torc",
+    "Waabi",
+    "PlusAI",
+    "BOT AUTO",
+    "TRUCK OPCO",
+]
+
+# Optional broad discovery (secondary). Default page size is 20; limit/offset works
+# but broad matches (e.g. LLC total ~74000) rarely surface AV operators.
+BROAD_SEARCH_TERMS = ["Robotics", "Mobility", "AI"]
 
 
 def _clean_company_name(name: str) -> str:
@@ -98,6 +126,7 @@ def parse_vehicles_response(api_response: dict) -> dict:
         model = v.get("model", "").strip()
         if model:
             model_counts[model] = model_counts.get(model, 0) + 1
+        # Normalize make casing so "TESLA" and "Tesla" merge in composition
         key = (v.get("make", "").strip().upper(), v.get("model", "").strip(), v.get("modelYear"))
         composition_counts[key] = composition_counts.get(key, 0) + 1
 
@@ -123,14 +152,24 @@ def _search_companies(
     client: httpx.Client,
     query: str,
     search_type: str = "company_name",
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
 ) -> list[dict]:
     """
     Search companies. Returns only results that have an AV authorization number.
+
+    Optional limit/offset: TxMCCS defaults to page size 20. Useful for paging
+    large result sets; broad terms like LLC still rarely yield AV operators.
     """
     try:
+        params: dict = {"searchType": search_type, "searchValue": query}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
         r = client.get(
             f"{API_BASE}/companies",
-            params={"searchType": search_type, "searchValue": query},
+            params=params,
             headers=HEADERS,
             timeout=15,
         )
@@ -146,9 +185,59 @@ def _search_companies(
         return []
 
 
+def _seed_from_known_operators(client: httpx.Client) -> dict[str, dict]:
+    """
+    Seed known operators via company_name search, falling back to hardcoded
+    businessEntityId when search misses (or auth-number search is broken).
+
+    Returns auth_number -> company dict (must include businessEntityId).
+    """
+    discovered: dict[str, dict] = {}
+
+    for auth, be_id, search_name in KNOWN_OPERATORS:
+        found = None
+        for reg in _search_companies(client, search_name, search_type="company_name"):
+            if reg.get("autonomousVehicleAuthorizationNumber") == auth:
+                found = reg
+                break
+            # Accept any AV hit for this search that matches our BE id
+            if reg.get("businessEntityId") == be_id:
+                found = reg
+                break
+
+        if found:
+            auth_key = found["autonomousVehicleAuthorizationNumber"]
+            discovered[auth_key] = found
+            continue
+
+        # Fallback: use hardcoded BE id directly so Tesla et al. are always scraped
+        logger.info(
+            "company_name search missed %s (%s); using hardcoded businessEntityId %s",
+            auth,
+            search_name,
+            be_id,
+        )
+        discovered[auth] = {
+            "autonomousVehicleAuthorizationNumber": auth,
+            "businessEntityId": be_id,
+            "companyName": search_name,
+            "autonomousVehicleStatus": "",
+        }
+
+    return discovered
+
+
 def scrape_all_operators() -> tuple[list[dict], list[str]]:
     """
     Discover all AV operators and fetch their fleet data.
+
+    Discovery order:
+      1) Known operators via company_name + hardcoded businessEntityId fallback
+      2) Specific operator name terms (Waymo, Zoox, Robotaxi, ...)
+      3) Optional broad terms (Robotics/Mobility/AI) — secondary only
+
+    Auth-number search is intentionally not primary: as of 2026-09-01 it returns
+    total=0 for all known AV authorization numbers.
 
     Returns:
       (results, failures) where results is a list of operator+vehicle dicts
@@ -160,17 +249,17 @@ def scrape_all_operators() -> tuple[list[dict], list[str]]:
         # auth_number -> company search result (has businessEntityId)
         discovered: dict[str, dict] = {}
 
-        # 1) Resolve known seed IDs via authorization-number search
-        #    (name search alone can miss operators like Aurora)
-        for op_id in KNOWN_OPERATOR_IDS:
-            for reg in _search_companies(
-                client, op_id, search_type="autonomous_vehicle_authorization_number"
-            ):
+        # 1) Seed known operators (company_name + BE id fallback)
+        discovered.update(_seed_from_known_operators(client))
+
+        # 2) Specific operator name discovery
+        for term in OPERATOR_NAME_TERMS:
+            for reg in _search_companies(client, term, search_type="company_name"):
                 auth = reg["autonomousVehicleAuthorizationNumber"]
                 discovered[auth] = reg
 
-        # 2) Discover additional operators via name search
-        for term in SEARCH_TERMS:
+        # 3) Optional broad discovery (do not rely on this alone)
+        for term in BROAD_SEARCH_TERMS:
             for reg in _search_companies(client, term, search_type="company_name"):
                 auth = reg["autonomousVehicleAuthorizationNumber"]
                 discovered[auth] = reg

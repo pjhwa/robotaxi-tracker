@@ -102,9 +102,11 @@ Tesla 차량 수 변경 시 브라우저 푸시를 보내려면:
 
 운영사 발견 방식:
 
-1. Seed 허가번호 목록을 `autonomous_vehicle_authorization_number`로 조회
-2. 이름 키워드(`LLC`, `Inc`, `Robotics` 등)로 추가 발견
+1. 알려진 운영사를 `company_name`으로 조회 (Tesla Robotaxi, Waymo, Zoox 등)하고, 검색 실패 시 하드코딩된 `businessEntityId`로 폴백
+2. 특정 운영사 이름 키워드로 추가 발견 (`Robotics`/`Mobility`/`AI`는 보조)
 3. `businessEntityId`로 상세·차량 목록 수집 후 SQLite 스냅샷 저장
+
+> **2026-09-01:** `autonomous_vehicle_authorization_number` 검색이 모든 알려진 AV 번호에 대해 `total=0`을 반환합니다. company_name / BE id가 현재 경로입니다.
 
 ## 데이터 모델 (요약)
 

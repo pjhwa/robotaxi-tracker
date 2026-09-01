@@ -1,6 +1,6 @@
 # Data Source & Operational Notes
 
-**Last updated:** 2026-08-08
+**Last updated:** 2026-09-01
 
 ## TxMCCS public API
 
@@ -21,11 +21,13 @@ The tracker does **not** scrape the DOM. It calls the same JSON APIs the TxMCCS 
 
 **`searchType` values used by the scraper:**
 
-- `company_name` — discover operators by keyword (`LLC`, `Inc`, `Robotics`, …)
-- `autonomous_vehicle_authorization_number` — resolve seed IDs (e.g. `AV8313426653583`)
+- `company_name` — **primary** discovery via specific operator names (`Tesla Robotaxi`, `Waymo`, `Zoox`, …) plus optional secondary broad terms (`Robotics`, `Mobility`, `AI`)
+- `autonomous_vehicle_authorization_number` — **broken as of 2026-09-01** (returns `total=0` for all known AV numbers including Tesla `AV8313426653583`); do not rely on it as the seed path
 
 Company search returns many non-AV carriers. Only rows with  
 `autonomousVehicleAuthorizationNumber` + `businessEntityId` are kept.
+
+Default page size is 20; `limit`/`offset` work, but broad terms like `LLC`/`Inc` match tens of thousands of carriers and are nearly useless for AV discovery.
 
 ### Vehicle payload
 
@@ -89,8 +91,17 @@ API `GET /health` merges this row with the latest snapshot age:
 
 Implementation: `frontend/src/components/ScrapeWarning.jsx`, `Header.jsx`.
 
+## Discovery strategy (2026-09-01)
+
+1. Seed known operators via `company_name` searches using specific names, with hardcoded `(auth_number, businessEntityId, search_name)` tuples as fallback when search misses — so Tesla is always scraped when online.
+2. Specific operator name terms for additional discovery.
+3. Optional broad terms (`Robotics` / `Mobility` / `AI`) only as a secondary pass.
+
+Auth-number search returning empty is why Tesla was stuck at the 2026-08-13 snapshot (186 Model Y) while the live fleet was already Model Y + Cybercab.
+
 ## Known limits
 
-- Name search alone can miss rebranded operators; seed auth numbers cover that.
+- Auth-number search currently returns empty; company_name + hardcoded `businessEntityId` is the reliable path.
+- Name search alone can still miss rebranded operators; hardcoded BE ids cover known seeds.
 - Operators only present in old snapshots (not re-discovered) keep old `captured_at` until they appear in search again.
 - Certificate vehicle lists (`/certificate/vehicles`) are **not** AV fleets; do not use for robotaxi counts.

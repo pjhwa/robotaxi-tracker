@@ -47,8 +47,14 @@ API_BASE = "https://txmccs.txdmv.gov/api/TruckStop"
 #
 # NOTE: Many non-AV motor carriers appear in company_name search.
 # Filter to rows that have autonomousVehicleAuthorizationNumber.
-# Seed known auth numbers via autonomous_vehicle_authorization_number search —
-# name search alone can miss some operators (e.g. Aurora rebrand).
+#
+# BREAKING (2026-09-01): autonomous_vehicle_authorization_number search returns
+# total=0 for ALL known AV auth numbers (including Tesla AV8313426653583).
+# Primary seed path is now company_name with specific operator names, plus
+# hardcoded (auth, businessEntityId, search_name) fallback so Tesla is always
+# scraped. Prefer specific names (Waymo, Zoox, Robotaxi, ...) over LLC/Inc.
+# Pagination: default page size 20; limit/offset work but broad LLC (~74000) is
+# nearly useless for AV discovery.
 
 SEARCH_OPERATORS_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies?searchType=company_name&searchValue={query}"
 
@@ -125,4 +131,4 @@ DETAIL_VEHICLE_COUNT = "API: len(automated-motor-vehicles['vehicles'])"
 DETAIL_VEHICLE_TYPE = "API: vehicles[n]['model'] (dominant)"
 DETAIL_STATUS = "API: company['autonomousVehicleStatus']"
 
-# Last verified live against TxMCCS: 2026-08-08
+# Last verified live against TxMCCS: 2026-09-01
