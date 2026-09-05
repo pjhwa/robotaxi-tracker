@@ -8,6 +8,16 @@ logger = logging.getLogger(__name__)
 API_BASE = "https://txmccs.txdmv.gov/api/TruckStop"
 HEADERS = {"Accept": "application/json"}
 
+# TxMCCS vehicle list (2026-09-03+): default page size 20, max limit 100,
+# response shape {vehicles, total}. Counting len(vehicles) without paging
+# silently caps every large fleet at 20.
+VEHICLE_PAGE_SIZE = 100
+_VEHICLE_OFFSET_GUARD = 100_000
+
+
+class IncompleteVehicleList(RuntimeError):
+    """Paginated vehicle fetch collected fewer records than the API `total`."""
+
 # Known AV operators: (auth_number, business_entity_id, company_name_search)
 # Primary discovery is company_name search + hardcoded businessEntityId fallback.
 # Auth-number search (searchType=autonomous_vehicle_authorization_number) currently
@@ -110,6 +120,73 @@ def parse_operator_detail(api_response: dict) -> dict:
         or "",
         "status": op.get("status", "") or op.get("autonomousVehicleStatus", "") or "",
         "business_entity_id": op.get("businessEntityId", "") or "",
+    }
+
+
+def fetch_all_vehicles(client: httpx.Client, business_entity_id: str) -> dict:
+    """
+    Fetch the full automated-motor-vehicles list for a company.
+
+    TxMCCS paginates this endpoint (default 20, max limit 100) and reports the
+    real fleet size in `total`. Follow limit/offset until we have `total`
+    unique vehicles. If the API ignores limit and returns the whole list in
+    one shot, stop after that response.
+    """
+    url = f"{API_BASE}/companies/{business_entity_id}/automated-motor-vehicles"
+    all_vehicles: list[dict] = []
+    seen_vins: set[str] = set()
+    offset = 0
+    reported_total: Optional[int] = None
+
+    while offset <= _VEHICLE_OFFSET_GUARD:
+        r = client.get(
+            url,
+            params={"limit": VEHICLE_PAGE_SIZE, "offset": offset},
+            headers=HEADERS,
+            timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json()
+        batch = data.get("vehicles") or []
+        if isinstance(data.get("total"), int):
+            reported_total = data["total"]
+
+        # Full unpaginated payload (legacy, or API ignored limit).
+        if offset == 0 and (
+            (reported_total is not None and len(batch) >= reported_total)
+            or len(batch) > VEHICLE_PAGE_SIZE
+        ):
+            return {
+                "vehicles": list(batch),
+                "total": reported_total if reported_total is not None else len(batch),
+            }
+
+        new_count = 0
+        for v in batch:
+            vin = v.get("vin")
+            if vin:
+                if vin in seen_vins:
+                    continue
+                seen_vins.add(vin)
+            all_vehicles.append(v)
+            new_count += 1
+
+        if reported_total is not None and len(all_vehicles) >= reported_total:
+            break
+        if not batch or new_count == 0:
+            break
+        if reported_total is None and len(batch) < VEHICLE_PAGE_SIZE:
+            break
+        offset += len(batch)
+
+    if reported_total is not None and len(all_vehicles) < reported_total:
+        raise IncompleteVehicleList(
+            f"{business_entity_id}: got {len(all_vehicles)} of {reported_total} vehicles"
+        )
+
+    return {
+        "vehicles": all_vehicles,
+        "total": reported_total if reported_total is not None else len(all_vehicles),
     }
 
 
@@ -283,13 +360,7 @@ def scrape_all_operators() -> tuple[list[dict], list[str]]:
                 r_detail.raise_for_status()
                 detail_json = r_detail.json()
 
-                r_vehicles = client.get(
-                    f"{API_BASE}/companies/{be_id}/automated-motor-vehicles",
-                    headers=HEADERS,
-                    timeout=15,
-                )
-                r_vehicles.raise_for_status()
-                vehicles_json = r_vehicles.json()
+                vehicles_json = fetch_all_vehicles(client, be_id)
 
                 # Prefer detail payload; fall back to search result fields
                 op_data = parse_company({**company, **detail_json})

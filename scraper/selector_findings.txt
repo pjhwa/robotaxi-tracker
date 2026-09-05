@@ -75,7 +75,7 @@ COMPANY_DETAIL_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies/{business
 # ============================================================
 # Endpoint: GET /api/TruckStop/companies/{businessEntityId}/automated-motor-vehicles
 #
-# Response shape:
+# Response shape (2026-09-03+ includes total + pagination):
 # {
 #   "vehicles": [
 #     {
@@ -85,10 +85,17 @@ COMPANY_DETAIL_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies/{business
 #       "modelYear": 2026
 #     },
 #     ...
-#   ]
+#   ],
+#   "total": 432
 # }
 #
-# Vehicle count = len(response["vehicles"])
+# Pagination: default page size 20; limit must be 1..100; offset works.
+# skip/take and page/pageSize are ignored (still returns 20).
+# Vehicle count = response["total"] after paging all unique VINs.
+# Do NOT use len(first_page["vehicles"]) — that silently caps fleets at 20.
+#
+# Vehicle objects have only vin/make/model/modelYear. No safety-driver field.
+# This list is the SB 2807 AV authorization roster (commercial, no human driver).
 
 OPERATOR_VEHICLES_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies/{businessEntityId}/automated-motor-vehicles"
 
@@ -99,7 +106,7 @@ OPERATOR_VEHICLES_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies/{busin
 # Authorization #:    company["autonomousVehicleAuthorizationNumber"]
 # Status:             company["autonomousVehicleStatus"]  ("authorized" | "not_authorized")
 # Business entity:    company["businessEntityId"]
-# Vehicle count:      len(vehicles_response["vehicles"])
+# Vehicle count:      vehicles_response["total"] after paging unique VINs (default page=20, max limit=100)
 # Vehicle make:       vehicles_response["vehicles"][n]["make"]
 # Vehicle model:      vehicles_response["vehicles"][n]["model"]
 # Vehicle model year: vehicles_response["vehicles"][n]["modelYear"]
@@ -123,12 +130,12 @@ OPERATOR_VEHICLES_URL = "https://txmccs.txdmv.gov/api/TruckStop/companies/{busin
 # Authorization #:    company["autonomousVehicleAuthorizationNumber"]
 # Status:             company["autonomousVehicleStatus"]
 # Business entity ID: company["businessEntityId"]
-# Vehicle count:      len(vehicles_response["vehicles"])
+# Vehicle count:      vehicles_response["total"] after paging unique VINs
 # Vehicle model:      vehicles_response["vehicles"][n]["model"]
 
 DETAIL_OPERATOR_NAME = "API: company['companyName']"
-DETAIL_VEHICLE_COUNT = "API: len(automated-motor-vehicles['vehicles'])"
+DETAIL_VEHICLE_COUNT = "API: automated-motor-vehicles['total'] (page all unique VINs)"
 DETAIL_VEHICLE_TYPE = "API: vehicles[n]['model'] (dominant)"
 DETAIL_STATUS = "API: company['autonomousVehicleStatus']"
 
-# Last verified live against TxMCCS: 2026-09-01
+# Last verified live against TxMCCS: 2026-09-05

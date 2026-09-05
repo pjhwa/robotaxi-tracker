@@ -1,6 +1,6 @@
 # Data Source & Operational Notes
 
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-05
 
 ## TxMCCS public API
 
@@ -40,13 +40,29 @@ Default page size is 20; `limit`/`offset` work, but broad terms like `LLC`/`Inc`
       "model": "Model Y",
       "modelYear": 2026
     }
-  ]
+  ],
+  "total": 432
 }
 ```
 
-- Fleet size = `len(vehicles)`
+- Vehicle objects have only `vin`, `make`, `model`, `modelYear` — no safety-driver / occupancy field
+- **Pagination (2026-09-03+):** default page size **20**, `limit` max **100**, `offset` works. `total` is the real fleet size. Fleet size is **not** `len(vehicles)` of the first page.
+- Scraper pages with `limit=100` until unique VINs ≥ `total`
 - `vehicle_type` = most common `model`
 - `vehicle_composition` = counts grouped by `(make, model, modelYear)`, sorted by count desc
+
+Impact of missing pagination: from **2026-09-03 14:28 UTC** every operator with more than 20 AVs was stored as **20** (Tesla 420→20, Waymo 988→20, …). Those truncated snapshots should be discarded.
+
+### Unsupervised / no safety driver
+
+TxMCCS `automated-motor-vehicles` is the SB 2807 commercial AV authorization roster.
+
+- **Automated Vehicle** = SAE Level 4 or 5
+- **Commercial activity** = transporting property or passengers **without a human driver**
+- Authorization (Tex. Transp. Code §545.456) is issued specifically for operation **without a human driver**
+- `autonomousVehicleStatus: authorized` means the operator is authorized for that driverless commercial use
+- The registry does **not** record whether a safety driver is physically in a given vehicle at a given time — only that the VIN is listed for unsupervised commercial operation
+- `GET .../certificate/vehicles` is the ordinary motor-carrier certificate fleet, **not** the AV list; do not use it for robotaxi counts
 
 ### Breaking change (2026-07-30)
 
@@ -105,3 +121,4 @@ Auth-number search returning empty is why Tesla was stuck at the 2026-08-13 snap
 - Name search alone can still miss rebranded operators; hardcoded BE ids cover known seeds.
 - Operators only present in old snapshots (not re-discovered) keep old `captured_at` until they appear in search again.
 - Certificate vehicle lists (`/certificate/vehicles`) are **not** AV fleets; do not use for robotaxi counts.
+- Vehicle list is paginated (default 20, max 100). Always page to `total`; never treat a 20-vehicle page as a fleet change.

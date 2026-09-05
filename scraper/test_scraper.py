@@ -4,8 +4,11 @@ from scraper import (
     parse_company,
     parse_vehicles_response,
     _seed_from_known_operators,
+    fetch_all_vehicles,
+    IncompleteVehicleList,
     KNOWN_OPERATORS,
     OPERATOR_NAME_TERMS,
+    VEHICLE_PAGE_SIZE,
 )
 
 
@@ -259,3 +262,81 @@ def test_seed_from_known_operators_falls_back_to_be_id():
     tesla = discovered["AV8313426653583"]
     assert tesla["businessEntityId"] == "81edcff1-8a6e-4ed0-be1f-60668515e223"
     assert tesla["autonomousVehicleAuthorizationNumber"] == "AV8313426653583"
+
+
+class _FakeVehicleClient:
+    """httpx.Client stub that pages {vehicles, total} like TxMCCS (max limit 100)."""
+
+    def __init__(self, vehicles, total=None, ignore_limit=False, page_cap=20):
+        self.vehicles = vehicles
+        self.total = total if total is not None else len(vehicles)
+        self.ignore_limit = ignore_limit
+        self.page_cap = page_cap
+        self.calls = []
+
+    def get(self, url, params=None, headers=None, timeout=None):
+        params = params or {}
+        self.calls.append({"url": url, "params": dict(params)})
+        if self.ignore_limit:
+            return _FakeResponse({"vehicles": list(self.vehicles), "total": self.total})
+        limit = int(params.get("limit", self.page_cap))
+        offset = int(params.get("offset", 0))
+        page = self.vehicles[offset : offset + limit]
+        return _FakeResponse({"vehicles": page, "total": self.total})
+
+
+def _veh(i, model="Model Y"):
+    return {"vin": f"VIN{i:04d}", "make": "TESLA", "model": model, "modelYear": 2026}
+
+
+def test_vehicle_page_size_is_txmccs_max():
+    assert VEHICLE_PAGE_SIZE == 100
+
+
+def test_fetch_all_vehicles_single_page_when_complete():
+    fleet = [_veh(i) for i in range(13)]
+    client = _FakeVehicleClient(fleet)
+    result = fetch_all_vehicles(client, "be-tesla")
+    assert result["total"] == 13
+    assert len(result["vehicles"]) == 13
+    assert len(client.calls) == 1
+    assert client.calls[0]["params"]["limit"] == VEHICLE_PAGE_SIZE
+    assert client.calls[0]["params"]["offset"] == 0
+    assert "automated-motor-vehicles" in client.calls[0]["url"]
+
+
+def test_fetch_all_vehicles_paginates_until_total():
+    """Regression: TxMCCS default page is 20; len(vehicles) is not fleet size."""
+    fleet = [_veh(i) for i in range(250)]
+    client = _FakeVehicleClient(fleet, page_cap=20)
+    result = fetch_all_vehicles(client, "be-tesla")
+    assert result["total"] == 250
+    assert len(result["vehicles"]) == 250
+    assert [v["vin"] for v in result["vehicles"]] == [v["vin"] for v in fleet]
+    assert len(client.calls) == 3  # 100 + 100 + 50
+    assert [c["params"]["offset"] for c in client.calls] == [0, 100, 200]
+
+
+def test_fetch_all_vehicles_default_page_of_20_is_not_the_count():
+    fleet = [_veh(i) for i in range(432)]
+    client = _FakeVehicleClient(fleet, page_cap=20)
+    result = fetch_all_vehicles(client, "be-tesla")
+    parsed = parse_vehicles_response(result)
+    assert parsed["vehicle_count"] == 432
+    assert parsed["vehicle_count"] != 20
+
+
+def test_fetch_all_vehicles_unpaginated_response_does_not_refetch():
+    """If the API ignores limit and returns the full list, stop after one call."""
+    fleet = [_veh(i) for i in range(150)]
+    client = _FakeVehicleClient(fleet, ignore_limit=True)
+    result = fetch_all_vehicles(client, "be-tesla")
+    assert len(result["vehicles"]) == 150
+    assert len(client.calls) == 1
+
+
+def test_fetch_all_vehicles_raises_when_pages_stop_short_of_total():
+    fleet = [_veh(i) for i in range(40)]
+    client = _FakeVehicleClient(fleet, total=432, page_cap=20)
+    with pytest.raises(IncompleteVehicleList):
+        fetch_all_vehicles(client, "be-tesla")

@@ -94,7 +94,7 @@ Tesla 차량 수 변경 시 브라우저 푸시를 보내려면:
 |------|----------|
 | 검색 | `GET /companies?searchType=company_name\|autonomous_vehicle_authorization_number&searchValue=...` |
 | 회사 상세 | `GET /companies/{businessEntityId}` |
-| 자율주행 차량 목록 | `GET /companies/{businessEntityId}/automated-motor-vehicles` |
+| 자율주행 차량 목록 | `GET /companies/{businessEntityId}/automated-motor-vehicles` (`limit`≤100 + `offset`; `total`이 실제 대수) |
 
 > **2026-07-30 변경:** 예전 경로  
 > `/operators/{authorizationNumber}` · `/operators/{id}/vehicles` 는 SPA HTML만 반환합니다.  
