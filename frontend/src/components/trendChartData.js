@@ -1,3 +1,10 @@
+export function parseCapturedAt(iso) {
+  if (iso == null || iso === "") return null;
+  const normalized = String(iso).replace(/(\.\d{3})\d+/, "$1");
+  const date = new Date(normalized);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
 export function formatTickDate(date) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
@@ -45,14 +52,17 @@ export function calendarDays(startMs, endMs) {
 export function toTrendChartModel(history, maxTicks = 40) {
   if (history.length === 0) return { data: [], ticks: [] };
 
-  const points = history.map((h) => {
-    const captured = new Date(h.captured_at);
-    return {
+  const points = [];
+  for (const h of history) {
+    const captured = parseCapturedAt(h.captured_at);
+    if (!captured) continue;
+    points.push({
       t: captured.getTime(),
       time: formatTickDate(captured),
       count: h.vehicle_count,
-    };
-  });
+    });
+  }
+  if (points.length === 0) return { data: [], ticks: [] };
 
   const days = calendarDays(points[0].t, points[points.length - 1].t);
   const byDay = new Map();

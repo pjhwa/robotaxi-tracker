@@ -39,7 +39,7 @@ export default function ComparisonChart({ snapshots, teslaId }) {
             contentStyle={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 4, color: "#fff", fontFamily: "Plus Jakarta Sans", fontSize: 12 }}
             cursor={{ fill: "rgba(255,255,255,0.02)" }}
           />
-          <Bar dataKey="count" radius={[0, 3, 3, 0]}>
+          <Bar dataKey="count" radius={[0, 3, 3, 0]} isAnimationActive={false}>
             {data.map((entry) => (
               <Cell key={entry.name} fill={entry.isTesla ? "#e82127" : "#1e1e1e"} />
             ))}

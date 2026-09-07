@@ -134,3 +134,15 @@
   margin-left: auto;
   letter-spacing: -0.01em;
 }
+
+@media (max-width: 640px) {
+  .teslaCard {
+    padding: 20px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .teslaCount {
+    font-size: 48px;
+  }
+}

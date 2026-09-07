@@ -22,9 +22,14 @@
   padding: 0;
 }
 
+html, body, #root {
+  min-height: 100%;
+}
+
 body {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   background: #000;
   color: #fff;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compactDateTick, formatTickDate, spaceTicks, toTrendChartModel } from "./trendChartData.js";
+import { compactDateTick, formatTickDate, parseCapturedAt, spaceTicks, toTrendChartModel } from "./trendChartData.js";
 
 test("keeps every snapshot as a chart point", () => {
   const history = [
@@ -54,6 +54,23 @@ test("returns empty data and ticks for empty history", () => {
   const { data, ticks } = toTrendChartModel([]);
   assert.deepEqual(data, []);
   assert.deepEqual(ticks, []);
+});
+
+test("parseCapturedAt accepts Python isoformat with microseconds", () => {
+  const d = parseCapturedAt("2026-09-07T22:46:18.448719+00:00");
+  assert.ok(d instanceof Date);
+  assert.ok(Number.isFinite(d.getTime()));
+});
+
+test("toTrendChartModel never emits non-finite x values", () => {
+  const { data, ticks } = toTrendChartModel([
+    { captured_at: "not-a-date", vehicle_count: 1 },
+    { captured_at: "2026-08-08T12:00:00.574956+00:00", vehicle_count: 10 },
+    { captured_at: "2026-08-09T12:00:00.123456+00:00", vehicle_count: 11 },
+  ]);
+  assert.ok(data.length >= 2);
+  assert.ok(data.every((d) => Number.isFinite(d.t)));
+  assert.ok(ticks.every((t) => Number.isFinite(t)));
 });
 
 test("compactDateTick keeps the month on the first tick and when the month changes", () => {
