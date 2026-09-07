@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import { compactDateTick, formatTickDate, toTrendChartModel } from "./trendChartData";
 import styles from "./TrendChart.module.css";
 
 const PERIODS = [
@@ -9,11 +11,20 @@ const PERIODS = [
   { label: "All", value: null },
 ];
 
+function useMaxDateTicks() {
+  const [maxTicks, setMaxTicks] = useState(40);
+  useEffect(() => {
+    const update = () => setMaxTicks(window.innerWidth < 640 ? 8 : 40);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return maxTicks;
+}
+
 export default function TrendChart({ history, onPeriodChange, period }) {
-  const data = history.map((h) => ({
-    time: new Date(h.captured_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    count: h.vehicle_count,
-  }));
+  const maxTicks = useMaxDateTicks();
+  const { data, ticks } = toTrendChartModel(history, maxTicks);
 
   return (
     <div className={styles.card}>
@@ -40,9 +51,25 @@ export default function TrendChart({ history, onPeriodChange, period }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-          <XAxis dataKey="time" stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Plus Jakarta Sans" }} />
+          <XAxis
+            type="number"
+            dataKey="t"
+            domain={["dataMin", "dataMax"]}
+            ticks={ticks}
+            interval={0}
+            tickFormatter={(value, index) => {
+              const label = formatTickDate(new Date(value));
+              const prev = index > 0 ? formatTickDate(new Date(ticks[index - 1])) : null;
+              return compactDateTick(label, prev);
+            }}
+            stroke="#2a2a2a"
+            tick={{ fill: "#444", fontSize: 11, fontFamily: "Plus Jakarta Sans" }}
+          />
           <YAxis stroke="#2a2a2a" tick={{ fill: "#444", fontSize: 11, fontFamily: "Plus Jakarta Sans" }} />
           <Tooltip
+            labelFormatter={(t) => new Date(t).toLocaleString("en-US", {
+              month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+            })}
             contentStyle={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 4, color: "#fff", fontFamily: "Plus Jakarta Sans", fontSize: 12 }}
             cursor={{ stroke: "#333" }}
           />
