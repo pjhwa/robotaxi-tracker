@@ -26,6 +26,7 @@ services:
     build: ./frontend
     ports:
       - "8443:443"
+      - "4002:80"
     volumes:
       - ./certs:/etc/nginx/certs:ro
     depends_on:

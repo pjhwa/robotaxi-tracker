@@ -16,7 +16,7 @@ Texas 주 교통부(TxMCCS)에 등록된 자율주행차 운영사의 허가 차
 
 | 서비스 | 포트 | 설명 |
 |--------|------|------|
-| frontend | **8443** (HTTPS) | 대시보드 UI |
+| frontend | **4002** (HTTP), **8443** (HTTPS) | 대시보드 UI |
 | api | 8000 | REST API |
 | scraper | — | 백그라운드 수집기 |
 
@@ -30,8 +30,9 @@ Texas 주 교통부(TxMCCS)에 등록된 자율주행차 운영사의 허가 차
 docker compose up --build -d
 ```
 
-- 대시보드: https://localhost:8443  
-  (로컬 인증서: `certs/` — `frontend/nginx.conf`의 경로와 맞춰야 함)
+- 대시보드 (아이폰/Tailscale, SniperBoard와 동일 방식): http://jerrymacmini.tail487ba6.ts.net:4002
+- 대시보드 (맥 로컬 HTTPS): https://localhost:8443  
+  (`jerrymacmini.local` mkcert는 iOS Safari에서 연결이 거절됩니다. 인증서 SAN이 `.local`뿐이고 Tailscale 호스트명과 다릅니다.)
 - API 직접 접근: http://localhost:8000
 - 프론트는 `/api/*`를 api 컨테이너로 프록시합니다.
 
