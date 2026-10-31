@@ -197,14 +197,24 @@ def parse_vehicles_response(api_response: dict) -> dict:
     if count == 0:
         return {"vehicle_count": 0, "vehicle_type": "", "vehicle_composition": []}
 
-    model_counts: dict[str, int] = {}
-    composition_counts: dict[tuple, int] = {}
+    # TxMCCS data entry is inconsistent ("Cybercab" vs "cybercab"): group models
+    # case-insensitively and display the most common spelling.
+    spellings: dict[str, dict[str, int]] = {}
     for v in vehicles:
         model = v.get("model", "").strip()
         if model:
+            by_case = spellings.setdefault(model.lower(), {})
+            by_case[model] = by_case.get(model, 0) + 1
+    canonical = {k: max(c, key=lambda m: c[m]) for k, c in spellings.items()}
+
+    model_counts: dict[str, int] = {}
+    composition_counts: dict[tuple, int] = {}
+    for v in vehicles:
+        model = canonical.get(v.get("model", "").strip().lower(), "")
+        if model:
             model_counts[model] = model_counts.get(model, 0) + 1
         # Normalize make casing so "TESLA" and "Tesla" merge in composition
-        key = (v.get("make", "").strip().upper(), v.get("model", "").strip(), v.get("modelYear"))
+        key = (v.get("make", "").strip().upper(), model, v.get("modelYear"))
         composition_counts[key] = composition_counts.get(key, 0) + 1
 
     dominant_model = max(model_counts, key=lambda m: model_counts[m]) if model_counts else ""

@@ -340,3 +340,18 @@ def test_fetch_all_vehicles_raises_when_pages_stop_short_of_total():
     client = _FakeVehicleClient(fleet, total=432, page_cap=20)
     with pytest.raises(IncompleteVehicleList):
         fetch_all_vehicles(client, "be-tesla")
+
+
+def test_parse_vehicles_response_merges_model_casing():
+    api_response = {
+        "vehicles": [
+            {"vin": "VIN1", "make": "TESLA", "model": "Cybercab", "modelYear": 2026},
+            {"vin": "VIN2", "make": "TESLA", "model": "Cybercab", "modelYear": 2026},
+            {"vin": "VIN3", "make": "TESLA", "model": "cybercab", "modelYear": 2026},
+        ]
+    }
+    result = parse_vehicles_response(api_response)
+    assert result["vehicle_type"] == "Cybercab"
+    assert result["vehicle_composition"] == [
+        {"make": "TESLA", "model": "Cybercab", "year": 2026, "count": 3}
+    ]
